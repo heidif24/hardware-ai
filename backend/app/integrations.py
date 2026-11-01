@@ -6,7 +6,7 @@ async def search_components(query:str,limit:int=8)->dict[str,Any]:
   try:
    async with httpx.AsyncClient(timeout=25) as c:
     r=await c.post("https://api.mouser.com/api/v2/search/keyword",params={"apiKey":os.environ["MOUSER_API_KEY"]},json={"SearchByKeywordRequest":{"keyword":query,"records":limit,"startingRecord":0,"searchOptions":"","searchWithYourSignUpLanguage":""}});r.raise_for_status()
-    for x in r.json().get("SearchResults",{}).get("Parts",[]):results.append({"provider":"Mouser","manufacturer":x.get("Manufacturer"),"mpn":x.get("ManufacturerPartNumber"),"description":x.get("Description"),"stock":x.get("Availability"),"price_breaks":x.get("PriceBreaks",[]),"datasheet":x.get(" ROHSStatus") or x.get("DataSheetUrl"),"verified_live":True})
+    for x in r.json().get("SearchResults",{}).get("Parts",[]):results.append({"provider":"Mouser","manufacturer":x.get("Manufacturer"),"mpn":x.get("ManufacturerPartNumber"),"description":x.get("Description"),"stock":x.get("Availability"),"price_breaks":x.get("PriceBreaks",[]),"datasheet":x.get("DataSheetUrl"),"verified_live":True})
   except Exception as e:providers["mouser_error"]=str(e)[:220]
  if providers["digikey"]:
   try:
@@ -15,14 +15,14 @@ async def search_components(query:str,limit:int=8)->dict[str,Any]:
     r=await c.post("https://api.digikey.com/products/v4/search/keyword",headers={"Authorization":f"Bearer {token}","X-DIGIKEY-Client-Id":os.environ["DIGIKEY_CLIENT_ID"],"X-DIGIKEY-Locale-Site":"US","X-DIGIKEY-Locale-Language":"en","X-DIGIKEY-Locale-Currency":"USD","X-DIGIKEY-Locale-ShipTo":"US"},json={"Keywords":query,"Limit":limit});r.raise_for_status()
     for x in r.json().get("Products",[]):results.append({"provider":"DigiKey","manufacturer":x.get("Manufacturer",{}).get("Name"),"mpn":x.get("ManufacturerProductNumber"),"description":x.get("Description"),"stock":x.get("QuantityAvailable"),"datasheet":x.get("DatasheetUrl"),"product_url":x.get("ProductUrl"),"verified_live":True})
   except Exception as e:providers["digikey_error"]=str(e)[:220]
- return {"query":query,"results":results,"providers":providers,"lcsc_search_url":"https://www.lcsc.com/search?q="+query.replace(" ","%20"),"notice":"Only returned distributor records are live-verified. LCSC is supplied as a catalogue link until an authorised API/feed is configured."}
+ return {"query":query,"results":results,"providers":providers,"lcsc_search_url":"https://www.lcsc.com/search?q="+query.replace(" ","%20"),"notice":"Only returned distributor records are live-verified. LCSC is a catalogue link until an authorised API/feed is configured."}
 async def generate_product_visual(brief:str,design:dict)->bytes:
  token=os.getenv("REPLICATE_API_TOKEN")
  if not token:raise RuntimeError("Replicate image-generation credentials have not been configured. Add REPLICATE_API_TOKEN to the backend environment.")
- prompt=("Create a photorealistic industrial-design product concept render for this electronics device. Clean studio product photography, neutral light grey background, three-quarter front view, premium manufacturable consumer/industrial hardware, realistic materials, subtle technical detailing, no text, no logos, no watermark. This is a visual concept, not a verified CAD model. Product brief: "+brief+". Functional architecture: "+str([m.get("name") for m in design.get("modules",[])]))[:3500]
+ prompt=("Photorealistic industrial-design product concept render, studio product photography, neutral light grey background, three-quarter front view, premium manufacturable electronics hardware, realistic materials, subtle technical details, no text, no logo, no watermark. Concept render only, not verified CAD. Brief: "+brief+". Architecture: "+str([m.get("name") for m in design.get("modules",[])]))[:3500]
  async with httpx.AsyncClient(timeout=180) as c:
   r=await c.post("https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions",headers={"Authorization":f"Bearer {token}","Prefer":"wait"},json={"input":{"prompt":prompt,"aspect_ratio":"4:3","output_format":"png","num_outputs":1}});r.raise_for_status();data=r.json()
-  if data.get("status") not in ("succeeded",):
+  if data.get("status")!="succeeded":
    pid=data.get("id")
    for _ in range(18):
     import asyncio;await asyncio.sleep(5);q=await c.get("https://api.replicate.com/v1/predictions/"+pid,headers={"Authorization":f"Bearer {token}"});q.raise_for_status();data=q.json()
