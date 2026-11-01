@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from app.engines import generate_firmware, generate_mechanical
+from app.engines import generate_firmware, generate_mechanical, generate_proprietary_connector
 
 
 class NativeEngineTests(unittest.TestCase):
@@ -27,6 +27,12 @@ class NativeEngineTests(unittest.TestCase):
             result = generate_mechanical(Path(directory), plan)
             self.assertEqual(result["status"], "BLOCKED")
             self.assertIn("width", " ".join(result["missing_inputs"]))
+
+    def test_connector_refuses_unverified_geometry(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result = generate_proprietary_connector(Path(directory), {"interface_design": {"connector_geometry": {}}})
+            self.assertEqual(result["status"], "BLOCKED")
+            self.assertIn("pin_count", " ".join(result["missing_inputs"]))
 
     def test_mechanical_refuses_inconsistent_geometry(self):
         with tempfile.TemporaryDirectory() as directory:
