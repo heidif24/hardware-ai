@@ -35,18 +35,20 @@ The render is a visual concept, not dimensionally accurate CAD, a validated encl
 ## Product workflow
 
 1. Enter a product brief and known engineering constraints.
-2. Generate a functional architecture.
-3. Review modules, interfaces, assumptions and risks.
-4. Download design JSON or the engineering dossier ZIP.
-5. Independently approach manufacturers and obtain a signed NDA before sharing confidential information.
+2. Generate a functional architecture and provisional engineering decisions.
+3. Review recommendations, alternatives, trade-offs and add notes or clarifications.
+4. Approve the design basis; editing the brief or decisions invalidates that approval.
+5. Download the structured engineering dossier ZIP.
+6. When the separate worker is connected, submit a toolchain execution job and download its execution report.
+7. Independently approach manufacturers and obtain a signed NDA before sharing confidential information.
 
 ## Project persistence and operational limits
 
 The current app automatically saves the latest brief and generated architecture in the browser's local storage on that device and browser. It does not yet provide user accounts, cloud project storage, cross-device synchronisation, team workspaces or a project database. 
 
-## Vercel-only architecture
+## Application and engineering-worker architecture
 
-Next.js App Router and Node.js Route Handlers run as Vercel Functions. AI provider requests are made directly from the server using HTTPS; no provider SDK or external backend service is required. ZIP dossiers are generated in the Vercel function using fflate. The current workflow does not require an external database or Render service.
+The Next.js application and AI synthesis APIs run on Vercel. A separate container worker in `worker/` is designed for Fly.io because KiCad, FreeCAD and embedded toolchains are not suitable for Vercel serverless functions. The Vercel API proxies approved job requests to the worker using `ENGINEERING_WORKER_URL` and `ENGINEERING_WORKER_TOKEN`; the worker uses `WORKER_API_TOKEN` and a persistent volume for job state. See `worker/README.md` for deployment instructions. The worker currently probes toolchains and validates actual native files when securely supplied; it reports missing artefacts rather than fabricating them.
 
 ## Local development
 
