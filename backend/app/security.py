@@ -6,7 +6,8 @@ from fastapi import Depends,HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from .db import get_db,User
-SECRET=os.getenv("SECRET_KEY","development-only-change-this-secret-before-deployment")
+SECRET=os.getenv("SECRET_KEY") or ("development-only-change-this-secret-before-deployment" if os.getenv("ENVIRONMENT")!="production" else "")
+if not SECRET: raise RuntimeError("SECRET_KEY must be configured in production.")
 password_hash=PasswordHash.recommended();oauth=OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 def hash_password(value:str)->str:return password_hash.hash(value)
 def verify_password(value:str,hashed:str)->bool:return password_hash.verify(value,hashed)
