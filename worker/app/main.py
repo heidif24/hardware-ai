@@ -46,6 +46,7 @@ class JobRequest(BaseModel):
     project_name: str = Field(min_length=1, max_length=180)
     brief: dict[str, Any]
     design: dict[str, Any]
+    engineering_plan: dict[str, Any]
     decision_selections: dict[str, str]
     decision_notes: dict[str, str] = Field(default_factory=dict)
     global_notes: str = ""
@@ -153,6 +154,7 @@ def validate_kicad(root: Path) -> list[dict[str, Any]]:
 def generate_native_project_scaffold(root: Path, job: dict[str, Any]) -> list[dict[str, Any]]:
     """Create a self-contained engineering workspace contract for downstream generators."""
     design = job.get("design", {})
+    plan = job.get("engineering_plan", {})
     architecture = root / "00_Foundry_Generation"
     architecture.mkdir(parents=True, exist_ok=True)
     manifest = {
@@ -169,7 +171,10 @@ def generate_native_project_scaffold(root: Path, job: dict[str, Any]) -> list[di
         "release_boundary": "Generation scaffolds are not fabrication approval; each native artifact must pass applicable validation.",
     }
     (architecture / "generation_manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-    return [{"passed": True, "status": "ENGINEERING_WORKSPACE_INITIALIZED", "file": "00_Foundry_Generation/generation_manifest.json"}]
+    (architecture / "ai_engineering_plan.json").write_text(json.dumps(plan, indent=2), encoding="utf-8")
+    gates = plan.get("generation_gates", {}) if isinstance(plan, dict) else {}
+    blocked = [name for name, gate in gates.items() if not isinstance(gate, dict) or gate.get("status") != "READY"]
+    return [{"passed": not blocked, "status": "READY_FOR_NATIVE_GENERATION" if not blocked else "GENERATION_BLOCKED_PENDING_ENGINEERING_INPUTS", "blocked_stages": blocked, "files": ["00_Foundry_Generation/generation_manifest.json", "00_Foundry_Generation/ai_engineering_plan.json"], "note": "No native generator may run for a blocked stage. Missing evidence is recorded rather than guessed."}]
 
 
 def validate_firmware(root: Path) -> list[dict[str, Any]]:
@@ -322,6 +327,8 @@ async def create_job(payload: JobRequest, background: BackgroundTasks, authoriza
         raise HTTPException(status_code=409, detail="The design basis must be approved before engineering execution.")
     if not isinstance(payload.design.get("modules"), list) or not payload.design.get("modules"):
         raise HTTPException(status_code=422, detail="A generated functional architecture is required.")
+    if not isinstance(payload.engineering_plan.get("generation_gates"), dict):
+        raise HTTPException(status_code=422, detail="A gated AI engineering plan is required.")
     decisions = payload.design.get("decision_points") or []
     unresolved = [item.get("title", item.get("id", "Decision")) for item in decisions if not payload.decision_selections.get(item.get("id"))]
     if unresolved:
@@ -356,6 +363,7 @@ async def create_job(payload: JobRequest, background: BackgroundTasks, authoriza
         "project_name": payload.project_name,
         "brief": payload.brief,
         "design": payload.design,
+        "engineering_plan": payload.engineering_plan,
         "decision_selections": payload.decision_selections,
         "decision_notes": payload.decision_notes,
         "global_notes": payload.global_notes,
