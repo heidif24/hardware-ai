@@ -77,3 +77,14 @@
 .freeze-confirmation{display:flex!important;align-items:center;color:var(--lime)!important;gap:7px}
 .export-gate{font:8px 'DM Mono';letter-spacing:.08em;color:#d8c69e;text-align:center}
 @media(max-width:600px){.decision-card{padding:12px}.decision-card-head{flex-wrap:wrap}.recommended-label{margin-left:26px}.freeze-panel{align-items:stretch;flex-direction:column}.freeze-panel button{width:100%}}
+
+/* Engineering execution worker */
+.execution-panel{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-top:18px;padding:17px;border:1px solid #3a4a3c;border-radius:12px;background:#101a14}
+.execution-panel>div:first-child{min-width:0;flex:1}
+.execution-panel h4{font:600 14px 'Space Grotesk';margin:8px 0 5px;overflow-wrap:anywhere}
+.execution-panel p{font-size:10px;line-height:1.65;color:#a5b3a8;margin:0;max-width:560px}
+.execution-status{margin-top:10px;font:9px 'DM Mono';letter-spacing:.06em;color:#a9b9aa}
+.execution-status strong{color:var(--lime)}
+.execution-status small{font-size:8px;color:#77877b}
+.execution-actions{display:flex;flex-direction:column;gap:8px;min-width:190px}
+@media(max-width:600px){.execution-panel{flex-direction:column}.execution-actions{width:100%;min-width:0}.execution-actions button{width:100%}}
