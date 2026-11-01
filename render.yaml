@@ -23,9 +23,3 @@ services:
           property: connectionString
       - key: FRONTEND_ORIGINS
         value: https://hardware-foundry-heidif24.vercel.app
-      - key: OPENAI_API_KEY
-        sync: false
-      - key: OPENAI_MODEL
-        value: gpt-4.1-mini
-      - key: REPLICATE_API_TOKEN
-        sync: false
