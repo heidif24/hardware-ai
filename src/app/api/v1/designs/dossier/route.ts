@@ -152,7 +152,7 @@ function engineeringCompanyCover(b: P, d: D, hasRender: boolean): string {
 }
 
 function architectureSvg(d: D) {
-  const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&", "<": "<", ">": ">", '"': """ }[c]!));
+  const esc = (s: string) => s.replace(/&/g, "&").replace(/</g, "<").replace(/>/g, ">").replace(/"/g, """);
   const cards = d.modules.map((m, i) => {
     const y = 132 + i * 108;
     return `<rect x="55" y="${y}" width="890" height="80" rx="12" fill="#111b1a" stroke="#50604a"/><text x="82" y="${y + 29}" fill="#c1f27a" font-family="Arial" font-size="19" font-weight="bold">${esc(m.name)}</text><text x="82" y="${y + 55}" fill="#d3ded7" font-family="Arial" font-size="13">${esc(m.purpose.slice(0, 115))}</text>`;
@@ -231,7 +231,6 @@ export async function POST(req: NextRequest) {
     }
 
     const now = new Date().toISOString();
-    // Always attempt concept render when Replicate is configured (UI already requests it; server does not skip if token exists).
     const wantRender = b.include_product_render !== false;
     const productRender = wantRender ? await renderProductConcept(b, d) : null;
     const assumptions = d.assumptions || [];
