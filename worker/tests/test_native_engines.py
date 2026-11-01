@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 from app.engines import generate_firmware, generate_mechanical, generate_proprietary_connector
+from app.pcb_engine import generate_pcb
 
 
 class NativeEngineTests(unittest.TestCase):
@@ -18,6 +19,39 @@ class NativeEngineTests(unittest.TestCase):
             result = generate_firmware(Path(directory), plan)
             self.assertEqual(result["status"], "BLOCKED")
             self.assertFalse((Path(directory) / "05_Firmware").exists())
+
+    def test_pcb_refuses_missing_layout_contract(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result = generate_pcb(Path(directory), {"pcb_design": {}})
+            self.assertEqual(result["status"], "BLOCKED")
+            self.assertFalse(result["passed"])
+
+    def test_pcb_refuses_unproven_board_dimensions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            plan = {"pcb_design": {"native_layout": {
+                "width_mm": {"value": 40, "value_basis": "provisional_target"},
+                "height_mm": {"value": 30, "value_basis": "user_specified"},
+                "thickness_mm": {"value": 1.6, "value_basis": "source_verified"},
+                "copper_layers": 2, "outline_basis": "user_specified",
+                "components": [], "nets": [], "tracks": [], "footprint_libraries": {}
+            }}}
+            result = generate_pcb(Path(directory), plan)
+            self.assertEqual(result["status"], "BLOCKED_OR_FAILED")
+            self.assertIn("provenance", result["detail"])
+
+    def test_pcb_requires_explicit_component_net_and_track_contract(self):
+        with tempfile.TemporaryDirectory() as directory:
+            plan = {"pcb_design": {"native_layout": {
+                "width_mm": {"value": 40, "value_basis": "user_specified"},
+                "height_mm": {"value": 30, "value_basis": "user_specified"},
+                "thickness_mm": {"value": 1.6, "value_basis": "source_verified"},
+                "copper_layers": 2, "outline_basis": "user_specified",
+                "components": [], "nets": [{"name": "GND"}], "tracks": [],
+                "footprint_libraries": {}
+            }}}
+            result = generate_pcb(Path(directory), plan)
+            self.assertEqual(result["status"], "BLOCKED_OR_FAILED")
+            self.assertIn("components", result["detail"])
 
     def test_mechanical_refuses_unproven_dimensions(self):
         with tempfile.TemporaryDirectory() as directory:
