@@ -1,4 +1,5 @@
-import {NextRequest,NextResponse} from "next/server";\nimport {engineeringAccessError} from "@/lib/engineering-access";
+import {NextRequest,NextResponse} from "next/server";
+import {engineeringAccessError} from "@/lib/engineering-access";
 export const runtime="nodejs";
 export const maxDuration=30;
 function workerConfig(){const raw=process.env.ENGINEERING_WORKER_URL;const token=process.env.ENGINEERING_WORKER_TOKEN;if(!raw||!token)throw new Error("Engineering worker is not connected. Configure ENGINEERING_WORKER_URL and ENGINEERING_WORKER_TOKEN in Vercel.");const url=new URL(raw);if(url.protocol!=="https:"&&url.hostname!=="localhost"&&url.hostname!=="127.0.0.1")throw new Error("Engineering worker URL must use HTTPS.");return {base:url.toString().replace(/\/+$/,""),token};}
