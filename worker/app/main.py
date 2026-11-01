@@ -249,7 +249,8 @@ def execute_job(path: Path) -> None:
             for file in (path / "workspace").rglob("*"):
                 if file.is_file():
                     bundle.write(file, file.relative_to(path / "workspace").as_posix())
-            bundle.write(path / "design_basis.json", "01_Product_Definition/approved_design_basis.json")\n            bundle.write(path / "execution_result.json", "09_Testing_And_Validation/execution_result.json")
+            bundle.write(path / "design_basis.json", "01_Product_Definition/approved_design_basis.json")
+            bundle.write(path / "execution_result.json", "09_Testing_And_Validation/execution_result.json")
         job["status"] = result["status"]
         job["result"] = result
         job["artifact"] = "engineering_execution_bundle.zip"
