@@ -280,6 +280,13 @@ def execute_job(path: Path) -> None:
         innovation = build_innovation_dossier(path / "workspace", job.get("design", {}), job.get("decision_selections", {}), job.get("global_notes", ""))
         pcb_generation = generate_pcb(path / "workspace" / "04_PCB", job.get("engineering_plan", {}))
         electronics = validate_kicad(path / "workspace")
+        if pcb_generation.get("status") == "SOURCE_GENERATED_PENDING_DRC":
+            generated_drc = [entry for entry in electronics
+                             if "drc" in " ".join(entry.get("command", [])).lower()
+                             and "foundry_generated.kicad_pcb" in " ".join(entry.get("command", []))]
+            pcb_generation["passed"] = bool(generated_drc and generated_drc[-1].get("passed"))
+            pcb_generation["status"] = "DRC_PASSED_PENDING_ENGINEERING_REVIEW" if pcb_generation["passed"] else "DRC_FAILED_OR_NOT_AVAILABLE"
+            pcb_generation["drc"] = generated_drc[-1] if generated_drc else {"passed": False, "detail": "KiCad DRC did not execute against the generated board."}
         firmware = validate_firmware(path / "workspace")
         mechanical = inspect_mechanical_files(path / "workspace")
         native_generation = generate_engineering_artifacts(path / "workspace", job.get("engineering_plan", {}))
