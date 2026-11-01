@@ -80,3 +80,26 @@ WORKER_API_TOKEN="generate-a-long-random-secret" docker compose -f docker-compos
 ```
 
 Set `ENGINEERING_WORKER_URL` and `ENGINEERING_WORKER_TOKEN` only on the server-side application environment. AI intelligence credentials should likewise remain server-side. The user interacts only with Hardware Foundry.
+
+
+## Native engineering execution engines
+
+The worker now contains evidence-gated native generation adapters in `worker/app/engines.py`:
+
+- **Firmware:** creates a PlatformIO project and invokes a real `platformio run` build only when the approved engineering plan includes a verified PlatformIO board identifier, supported framework, and reviewed board-specific application source. Compiler output and build status are included in the execution record.
+- **Mechanical CAD:** creates a FreeCAD macro for a parametric enclosure and invokes `FreeCADCmd` to produce editable `.FCStd` and neutral `.step` files only when length, width, height, wall, floor and corner parameters have explicit user/source/calculation provenance and pass geometric consistency checks.
+- **Electronics/PCB:** validates actual supplied KiCad schematics and boards with KiCad CLI; successful board DRC triggers Gerber and drill export. The worker does not invent verified component pinouts, footprints, board stackups or routes from incomplete concept data.
+- **Cross-stage release:** generated files are inventoried in the execution package. A stage that lacks required engineering evidence remains BLOCKED; a successful CAD/firmware tool invocation is not prototype or regulatory certification.
+
+### Engineering worker environment
+
+Required Vercel server-side variables:
+- `ENGINEERING_WORKER_URL`: HTTPS base URL of the deployed worker (for Fly, the app hostname shown by `fly apps list`).
+- `ENGINEERING_WORKER_TOKEN`: bearer token shared with the worker as `WORKER_API_TOKEN`.
+
+Required worker secret:
+- `WORKER_API_TOKEN`: long random secret; configure with Fly secrets, never commit it.
+
+AI generation requires at least one provider key: `GEMINI_API_KEY`, `GROQ_API_KEY`, or `OPENAI_API_KEY`. These credentials are independent of worker deployment. The worker health endpoint is public and reports service availability only; authenticated toolchain and job endpoints require the bearer token.
+
+The engineering worker uses a persistent Fly volume for job state. Queued jobs are resumed after process startup; a job interrupted during a native tool invocation is marked failed with partial workspace artefacts retained for diagnosis. Do not treat a queued job as completed until the status endpoint reports a terminal result and the archive is downloadable.

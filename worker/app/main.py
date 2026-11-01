@@ -18,6 +18,7 @@ from fastapi import BackgroundTasks, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from .innovation import build_innovation_dossier
+from .engines import generate_engineering_artifacts
 
 APP_VERSION = "0.1.0"
 JOBS_ROOT = Path(os.getenv("JOBS_ROOT", ".data/jobs"))
@@ -174,7 +175,7 @@ def generate_native_project_scaffold(root: Path, job: dict[str, Any]) -> list[di
     (architecture / "ai_engineering_plan.json").write_text(json.dumps(plan, indent=2), encoding="utf-8")
     gates = plan.get("generation_gates", {}) if isinstance(plan, dict) else {}
     blocked = [name for name, gate in gates.items() if not isinstance(gate, dict) or gate.get("status") != "READY"]
-    return [{"passed": not blocked, "status": "READY_FOR_NATIVE_GENERATION" if not blocked else "GENERATION_BLOCKED_PENDING_ENGINEERING_INPUTS", "blocked_stages": blocked, "files": ["00_Foundry_Generation/generation_manifest.json", "00_Foundry_Generation/ai_engineering_plan.json"], "note": "No native generator may run for a blocked stage. Missing evidence is recorded rather than guessed."}]
+    return [{"passed": not blocked, "status": "READY_FOR_NATIVE_GENERATION" if not blocked else "GENERATION_BLOCKED_PENDING_ENGINEERING_INPUTS", "blocked_stages": blocked, "files": ["00_Foundry_Generation/generation_manifest.json", "00_Foundry_Generation/ai_engineering_plan.json"], "note": "Each native generator applies its own independent evidence and provenance checks. Model gate labels are never treated as proof; missing evidence is recorded rather than guessed."}]
 
 
 def validate_firmware(root: Path) -> list[dict[str, Any]]:
@@ -251,6 +252,9 @@ def build_report(job: dict[str, Any], toolchains: dict[str, Any], uploaded: list
     lines.extend(["- " + item for item in missing] or ["- No missing source category was detected by this initial worker check."])
     lines.extend([
         "",
+        "## Native generation",
+        "Native firmware and FreeCAD engines run only when board identifiers, application source and provenance-labelled dimensions are supplied. See execution_result.json for per-stage outcomes.",
+        "",
         "## Release boundary",
         "This worker executes available checks against actual supplied source files. It does not invent component identities, electrical ratings, pin maps, CAD dimensions or test evidence. A successful tool invocation is not equivalent to design approval, regulatory certification, prototype validation or factory acceptance.",
         "",
@@ -272,13 +276,17 @@ def execute_job(path: Path) -> None:
         electronics = validate_kicad(path / "workspace")
         firmware = validate_firmware(path / "workspace")
         mechanical = inspect_mechanical_files(path / "workspace")
-        checks = {"Engineering workspace": workspace_generation, "Generative innovation": innovation, "KiCad": electronics, "Firmware": firmware, "Mechanical": mechanical}
+        native_generation = generate_engineering_artifacts(path / "workspace", job.get("engineering_plan", {}))
+        generated_files = [str(file.relative_to(path / "workspace")) for file in (path / "workspace").rglob("*") if file.is_file()]
+        uploaded = sorted(set(uploaded + generated_files))
+        checks = {"Engineering workspace": workspace_generation, "Generative innovation": innovation, "KiCad": electronics, "Firmware": firmware, "Mechanical": mechanical, "Native generation": [native_generation]}
         report = build_report(job, toolchains, uploaded, checks)
         (path / "workspace" / "09_Testing_And_Validation").mkdir(parents=True, exist_ok=True)
         (path / "workspace" / "09_Testing_And_Validation" / "engineering_execution_report.md").write_text(report, encoding="utf-8")
         result = {
             "toolchains": toolchains,
             "checks": checks,
+            "native_generation": native_generation,
             "innovation": innovation,
             "uploaded_files": uploaded,
             "status": "BLOCKED" if "ENGINEERING_WORK_INCOMPLETE" in report else "SUCCEEDED",
@@ -308,11 +316,13 @@ async def recover_interrupted_jobs() -> None:
     for file in JOBS_ROOT.glob("*/job.json"):
         try:
             job = json.loads(file.read_text(encoding="utf-8"))
-            if job.get("status") in ("QUEUED", "RUNNING"):
+            if job.get("status") == "RUNNING":
                 job["status"] = "FAILED"
-                job["error"] = "Worker restarted before this job completed. Resubmit the job to retry."
+                job["error"] = "Worker restarted during native execution. Review partial workspace artefacts and resubmit to retry."
                 job["finished_at"] = utc_now()
                 write_job(file.parent, job)
+            elif job.get("status") == "QUEUED":
+                asyncio.create_task(asyncio.to_thread(execute_job, file.parent))
         except Exception:
             continue
 
