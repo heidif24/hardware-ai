@@ -59,7 +59,7 @@ export async function POST(req:NextRequest){
     return NextResponse.json({...design,generation_mode:`${provider}_structured`,generation_provider:provider});
    }catch(error){attempts.push(provider);console.error(`Hardware Foundry ${provider} generation failed:`,error instanceof Error?error.message:"unknown error");}
   }
-  const result=fallback(body);if(attempts.length)result.generation_notice=`AI generation could not be completed by: ${attempts.join(", ")}. A deterministic baseline was generated instead.`;
+  const result=fallback(body);if(attempts.length)result.generation_notice=`AI generation could not be completed by: ${attempts.join(", ")}. A deterministic baseline was generated instead.`;else result.generation_notice="No AI provider credentials are configured. Add GEMINI_API_KEY, GROQ_API_KEY or OPENAI_API_KEY in Vercel to enable AI-assisted architecture generation.";
   return NextResponse.json(result);
  }catch{return NextResponse.json({detail:"Invalid synthesis request."},{status:400});}
 }
