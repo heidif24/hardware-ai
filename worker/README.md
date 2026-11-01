@@ -9,7 +9,8 @@ This is the separate container service for long-running engineering-tool executi
 - Probes the installed KiCad, FreeCAD, ARM and AVR toolchains.
 - Accepts native engineering source files as base64-encoded job inputs (50 MB total limit).
 - Runs KiCad ERC/DRC and exports Gerber/drill files only when the corresponding real project files are present and the DRC command passes.
-- Detects firmware source but does not execute untrusted Makefiles; board-specific compilation remains gated on a frozen MCU, trusted build definition and SDK.\n- Performs a basic STEP-file header check.
+- Detects firmware source but does not execute untrusted Makefiles; board-specific compilation remains gated on a frozen MCU, trusted build definition and SDK.
+- Performs a basic STEP-file header check.
 - Produces a ZIP containing actual supplied/generated files, execution results and an explicit report of missing work.
 
 The worker limits submissions to two concurrent jobs and twenty new jobs per 24 hours. The public Vercel bridge does not forward arbitrary uploaded source files. The worker does **not** invent component selections, pin assignments, PCB geometry, enclosure dimensions, firmware or validation evidence. A job with incomplete source files is returned as `BLOCKED`, not falsely marked complete. A passed tool invocation is not engineering sign-off or certification.
