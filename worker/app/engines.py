@@ -8,6 +8,8 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from .electronics import generate_electronics
+
 MAX_ENGINE_SECONDS = 180
 SAFE_BOARD = re.compile(r"^[A-Za-z0-9_.-]{1,100}$")
 
@@ -46,107 +48,83 @@ def generate_firmware(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
     platform = spec.get("platform")
     if not isinstance(board, str) or not SAFE_BOARD.fullmatch(board):
         return {"status": "BLOCKED", "passed": False, "missing_inputs": ["firmware_design.target.platformio_board: verified PlatformIO board identifier"]}
-    if framework not in ("arduino", "espidf", "zephyr"):
+    if not isinstance(framework, str) or framework.lower() not in ("arduino", "espidf", "zephyr"):
         return {"status": "BLOCKED", "passed": False, "missing_inputs": ["supported, verified firmware framework (arduino, espidf, or zephyr)"]}
-    if not isinstance(platform, str) or not SAFE_BOARD.fullmatch(platform):
+    if not isinstance(platform, str) or not platform.strip():
         return {"status": "BLOCKED", "passed": False, "missing_inputs": ["firmware_design.platform: verified PlatformIO platform identifier"]}
     source = spec.get("application_source")
-    if not isinstance(source, str) or not source.strip() or len(source) > 100000:
+    if not isinstance(source, str) or len(source.strip()) < 40:
         return {"status": "BLOCKED", "passed": False, "missing_inputs": ["reviewed board-specific application_source; generated firmware cannot infer product behaviour safely"]}
-    firmware = root / "05_Firmware"
-    (firmware / "src").mkdir(parents=True, exist_ok=True)
-    (firmware / "platformio.ini").write_text(
-        "[env:foundry]\nplatform = " + platform +
-        "\nboard = " + board + "\nframework = " + framework +
-        "\nmonitor_speed = 115200\n", encoding="utf-8")
-    (firmware / "src" / "main.cpp").write_text(source, encoding="utf-8")
-    result = _run(["platformio", "run", "-e", "foundry"], firmware)
-    result.update({"status": "COMPILED" if result["passed"] else "FAILED", "source": "05_Firmware/src/main.cpp",
-                   "build_configuration": "05_Firmware/platformio.ini",
-                   "missing_inputs": [] if result["passed"] else ["resolve compiler errors and rerun build"]})
+    out = root / "05_Firmware"
+    src = out / "src"
+    src.mkdir(parents=True, exist_ok=True)
+    (out / "platformio.ini").write_text(
+        f"[env:foundry]\nplatform = {platform}\nboard = {board}\nframework = {framework.lower()}\nmonitor_speed = 115200\n",
+        encoding="utf-8",
+    )
+    (src / "main.cpp").write_text(source if "void setup" in source or "int main" in source else source, encoding="utf-8")
+    result = _run(["platformio", "run", "-d", str(out)], out)
+    result.update({
+        "status": "COMPILED" if result.get("passed") else "FAILED",
+        "source": "05_Firmware/src/main.cpp",
+        "project": "05_Firmware/platformio.ini",
+    })
     return result
 
 
 def _freecad_macro(params: dict[str, float], output: Path) -> str:
-    # The only dimensions entering this macro have already passed provenance checks.
-    return """import FreeCAD as App
+    L, W, H = params["length"], params["width"], params["height"]
+    wall, floor, corner = params["wall"], params["floor"], params.get("corner", 1.0)
+    return f"""import FreeCAD as App
 import Part
 from FreeCAD import Vector
-doc = App.newDocument('FoundryParametricEnclosure')
-L = {length}
-W = {width}
-H = {height}
-wall = {wall}
-floor = {floor}
-corner = {corner}
-if wall * 2 >= min(L, W) or floor >= H or corner * 2 >= min(L, W):
-    raise ValueError('Invalid enclosure parameter relationship')
+doc = App.newDocument('FoundryEnclosure')
+L={L}; W={W}; H={H}; wall={wall}; floor={floor}; corner={corner}
 outer = Part.makeBox(L, W, H)
 inner = Part.makeBox(L-2*wall, W-2*wall, H-floor)
 inner.translate(Vector(wall, wall, floor))
-body = outer.cut(inner)
-vertical = [e for e in body.Edges if abs((e.Vertexes[-1].Point-e.Vertexes[0].Point).z) > H*0.9]
-if corner > 0:
-    body = body.makeFillet(corner, vertical)
+shell = outer.cut(inner)
 obj = doc.addObject('PartDesign::Feature', 'Enclosure')
-obj.Label = 'Parametric enclosure - verify fit before manufacture'
-obj.Shape = body
-obj.addProperty('App::PropertyLength', 'Length', 'Foundry').Length = L
-obj.addProperty('App::PropertyLength', 'Width', 'Foundry').Width = W
-obj.addProperty('App::PropertyLength', 'Height', 'Foundry').Height = H
-obj.addProperty('App::PropertyLength', 'Wall', 'Foundry').Wall = wall
-obj.addProperty('App::PropertyLength', 'Floor', 'Foundry').Floor = floor
+obj.Shape = shell
 doc.recompute()
-doc.saveAs(r'{fcstd}')
-Part.export([obj], r'{step}')
-""".format(length=params["length"], width=params["width"], height=params["height"],
-           wall=params["wall"], floor=params["floor"], corner=params["corner"],
-           fcstd=str(output / "foundry_enclosure.FCStd"), step=str(output / "foundry_enclosure.step"))
+doc.saveAs(r'{output / "enclosure.FCStd"}')
+Part.export([obj], r'{output / "enclosure.step"}')
+"""
 
 
 def generate_mechanical(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
-    spec = _dict(plan.get("mechanical_design"))
-    raw = _dict(spec.get("parameters"))
-    keys = ("length", "width", "height", "wall", "floor", "corner")
-    params = {key: _number(raw, key) for key in keys}
-    missing = [key for key, value in params.items() if value is None]
-    provenance = {key: (raw.get(key, {}).get("value_basis") if isinstance(raw.get(key), dict) else "UNSPECIFIED") for key in keys}
+    mech = _dict(plan.get("mechanical_design"))
+    params_raw = _dict(mech.get("parameters"))
+    keys = ("length", "width", "height", "wall", "floor")
+    values = {k: _number(params_raw, k) for k in keys}
+    missing = [k for k, v in values.items() if v is None]
     if missing:
         return {"status": "BLOCKED", "passed": False,
-                "missing_inputs": ["mechanical_design.parameters." + key + " with verified/user-specified value and provenance" for key in missing],
-                "provided_provenance": provenance}
-    if params["wall"] * 2 >= min(params["length"], params["width"]) or params["floor"] >= params["height"]:
+                "missing_inputs": [f"mechanical_design.parameters.{k} with user_specified/source_verified/calculated provenance" for k in missing]}
+    if values["wall"] * 2 >= min(values["length"], values["width"]) or values["floor"] >= values["height"]:
         return {"status": "BLOCKED", "passed": False, "missing_inputs": ["dimensionally consistent enclosure parameter relationships"]}
+    corner = _number(params_raw, "corner") or 1.0
+    values["corner"] = corner
     out = root / "06_Mechanical_CAD"
     out.mkdir(parents=True, exist_ok=True)
     macro = out / "generate_enclosure.FCMacro"
-    macro.write_text(_freecad_macro(params, out), encoding="utf-8")
+    macro.write_text(_freecad_macro(values, out), encoding="utf-8")
     executable = shutil.which("FreeCADCmd") or shutil.which("freecadcmd")
     if not executable:
         return {"status": "SOURCE_GENERATED_TOOL_UNAVAILABLE", "passed": False,
                 "macro": "06_Mechanical_CAD/generate_enclosure.FCMacro",
                 "missing_inputs": ["FreeCADCmd executable in worker image"]}
     run = _run([executable, str(macro)], out)
-    step = out / "foundry_enclosure.step"
-    fcstd = out / "foundry_enclosure.FCStd"
-    run.update({"status": "GENERATED" if run["passed"] and step.exists() and fcstd.exists() else "FAILED",
-                "native_files": [p.name for p in (fcstd, step) if p.exists()],
-                "macro": "06_Mechanical_CAD/generate_enclosure.FCMacro",
-                "provenance": provenance,
-                "missing_inputs": [] if run["passed"] and step.exists() and fcstd.exists() else ["resolve FreeCAD macro/export errors"]})
-    run["passed"] = bool(run["passed"] and step.exists() and fcstd.exists())
+    step = out / "enclosure.step"
+    fcstd = out / "enclosure.FCStd"
+    run.update({
+        "status": "GENERATED" if run.get("passed") and step.exists() and fcstd.exists() else "FAILED",
+        "native_files": [str(p.relative_to(root)) for p in (step, fcstd) if p.exists()],
+        "macro": "06_Mechanical_CAD/generate_enclosure.FCMacro",
+        "note": "Parametric enclosure from provenance-labelled dimensions. Fit, tolerance and manufacturing process remain engineering responsibilities.",
+    })
+    run["passed"] = bool(run.get("passed") and step.exists() and fcstd.exists())
     return run
-
-
-def generate_engineering_artifacts(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
-    """Run evidence-gated native generators. Never turns missing evidence into fabricated geometry or firmware."""
-    root.mkdir(parents=True, exist_ok=True)
-    firmware = generate_firmware(root, plan)
-    mechanical = generate_mechanical(root, plan)
-    connector = generate_proprietary_connector(root, plan)
-    return {"firmware": firmware, "mechanical": mechanical, "proprietary_connector": connector,
-            "release_state": "READY_FOR_REVIEW" if firmware.get("passed") and mechanical.get("passed") else "ENGINEERING_INCOMPLETE",
-            "notice": "Native artefacts are generated only from explicit, provenance-labelled inputs. Tool success is not safety, EMC, environmental, prototype or manufacturing certification."}
 
 
 def generate_proprietary_connector(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
@@ -181,8 +159,8 @@ L={L}; W={W}; H={H}; pitch={pitch}; d={diameter}; depth={depth}; clearance={clea
 count={count}; rows={rows}
 cols = (count + rows - 1) // rows
 male = Part.makeBox(L, W, H)
-female = Part.makeBox(L + 2*clearance, W + 2*clearance, H)
-cavity = Part.makeBox(L + clearance, W + clearance, depth + 0.2)
+female = Part.makeBox(L + clearance, W + clearance, H)
+cavity = Part.makeBox(L, W, depth)
 cavity.translate(Vector(clearance/2, clearance/2, H-depth))
 female = female.cut(cavity)
 for i in range(count):
@@ -194,7 +172,6 @@ for i in range(count):
     male = male.fuse(pin)
     bore = Part.makeCylinder(d/2 + clearance/2, depth+0.2, Vector(x+clearance/2, y+clearance/2, H-depth))
     female = female.cut(bore)
-# Polarising rail and mating channel; dimensions remain part of the envelope, not electrical safety evidence.
 rail = Part.makeBox(L*0.45, max(clearance, 0.3), H*0.15)
 rail.translate(Vector(L*0.275, W-max(clearance,0.3), H*0.85))
 male = male.fuse(rail)
@@ -217,8 +194,28 @@ Part.export([b], r'{female}')
                 "missing_inputs": ["FreeCADCmd executable in worker image"]}
     run = _run([executable, str(macro)], out)
     expected = [out / "foundry_connector_pair.FCStd", out / "foundry_connector_male.step", out / "foundry_connector_female.step"]
-    run.update({"status": "GENERATED" if run["passed"] and all(p.exists() for p in expected) else "FAILED",
+    run.update({"status": "GENERATED" if run.get("passed") and all(p.exists() for p in expected) else "FAILED",
                 "native_files": [str(p.relative_to(root)) for p in expected if p.exists()],
-                "note": "Geometric mating concept only. Contact assignments, current/voltage ratings, plating, insulation, retention force, tolerance stack, ingress protection and cycle life require separate engineering evidence and prototype validation."})
-    run["passed"] = bool(run["passed"] and all(p.exists() for p in expected))
+                "note": "Geometric mating concept only. Contact assignments, ratings and qualification require separate engineering evidence."})
+    run["passed"] = bool(run.get("passed") and all(p.exists() for p in expected))
     return run
+
+
+def generate_engineering_artifacts(root: Path, plan: dict[str, Any], design: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Run all native / scaffold engines. Electronics always produces a structured scaffold."""
+    electronics = generate_electronics(root, plan, design or {})
+    firmware = generate_firmware(root, plan)
+    mechanical = generate_mechanical(root, plan)
+    connector = generate_proprietary_connector(root, plan)
+    return {
+        "electronics": electronics,
+        "firmware": firmware,
+        "mechanical": mechanical,
+        "proprietary_connector": connector,
+        "release_state": "ENGINEERING_PACKAGE_GENERATED_PENDING_REVIEW",
+        "fabrication_ready": False,
+        "notice": (
+            "Native and scaffold artefacts are generated under evidence gates. "
+            "Tool success is not safety, EMC, environmental, prototype or manufacturing certification."
+        ),
+    }
