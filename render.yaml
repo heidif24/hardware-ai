@@ -25,11 +25,7 @@ services:
         value: https://hardware-foundry-heidif24.vercel.app
       - key: OPENAI_API_KEY
         sync: false
-      - key: MOUSER_API_KEY
-        sync: false
-      - key: DIGIKEY_CLIENT_ID
-        sync: false
-      - key: DIGIKEY_CLIENT_SECRET
-        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4.1-mini
       - key: REPLICATE_API_TOKEN
         sync: false
