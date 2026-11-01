@@ -37,7 +37,7 @@ def _pcbnew():
 def _safe_footprint_library(raw: str, root: Path) -> Path:
     candidate = Path(raw)
     allowed_roots = [Path("/usr/share/kicad/footprints").resolve(), (root / "00_Engineering_Sources").resolve()]
-    resolved = candidate.resolve()
+    resolved = (root.parent / candidate).resolve() if not candidate.is_absolute() else candidate.resolve()
     if not any(resolved == base or base in resolved.parents for base in allowed_roots):
         raise ValueError("Footprint library must be an installed KiCad library or a supplied source under 00_Engineering_Sources.")
     if not resolved.is_dir() or resolved.suffix != ".pretty":
@@ -133,8 +133,8 @@ def generate_pcb(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
                 raise ValueError(f"KiCad footprint could not be loaded: {component['footprint']}.")
             footprint.SetReference(component["reference"])
             footprint.SetValue(str(component.get("value", component["reference"])))
-            footprint.SetPosition(pcb.VECTOR2I(pcb.FromMM(_verified_number(component["x_mm"], component["reference"] + ".x_mm")),
-                                               pcb.FromMM(_verified_number(component["y_mm"], component["reference"] + ".y_mm"))))
+            footprint.SetPosition(pcb.VECTOR2I(pcb.FromMM(_verified_number(component["x_mm"], component["reference"] + ".x_mm", minimum=0)),
+                                               pcb.FromMM(_verified_number(component["y_mm"], component["reference"] + ".y_mm", minimum=0))))
             rotation = component.get("rotation_deg", 0)
             if isinstance(rotation, dict):
                 rotation = _verified_number(rotation, component["reference"] + ".rotation_deg", minimum=-360, maximum=360)
@@ -161,10 +161,10 @@ def generate_pcb(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
             board.Add(edge)
         for index, item in enumerate(tracks):
             segment = pcb.PCB_TRACK(board)
-            segment.SetStart(pcb.VECTOR2I(pcb.FromMM(_verified_number(item["start_x_mm"], f"track[{index}].start_x_mm")),
-                                           pcb.FromMM(_verified_number(item["start_y_mm"], f"track[{index}].start_y_mm"))))
-            segment.SetEnd(pcb.VECTOR2I(pcb.FromMM(_verified_number(item["end_x_mm"], f"track[{index}].end_x_mm")),
-                                         pcb.FromMM(_verified_number(item["end_y_mm"], f"track[{index}].end_y_mm"))))
+            segment.SetStart(pcb.VECTOR2I(pcb.FromMM(_verified_number(item["start_x_mm"], f"track[{index}].start_x_mm", minimum=0)),
+                                           pcb.FromMM(_verified_number(item["start_y_mm"], f"track[{index}].start_y_mm", minimum=0))))
+            segment.SetEnd(pcb.VECTOR2I(pcb.FromMM(_verified_number(item["end_x_mm"], f"track[{index}].end_x_mm", minimum=0)),
+                                         pcb.FromMM(_verified_number(item["end_y_mm"], f"track[{index}].end_y_mm", minimum=0))))
             segment.SetWidth(pcb.FromMM(_verified_number(item["width_mm"], f"track[{index}].width_mm")))
             segment.SetLayer(pcb.F_Cu if item["layer"] == "F.Cu" else pcb.B_Cu)
             segment.SetNet(net_objects[item["net"]])
