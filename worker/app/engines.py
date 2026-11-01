@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from .electronics import generate_electronics
+from .datasheet_verify import verify_from_uploaded_datasheets
 
 MAX_ENGINE_SECONDS = 180
 SAFE_BOARD = re.compile(r"^[A-Za-z0-9_.-]{1,100}$")
@@ -128,7 +129,6 @@ def generate_mechanical(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
 
 
 def generate_proprietary_connector(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
-    """Generate matched keyed male/female concept geometry only from provenance-labelled dimensions."""
     interface = _dict(plan.get("interface_design"))
     raw = _dict(interface.get("connector_geometry"))
     numeric = ("body_length", "body_width", "body_height", "pitch", "contact_diameter", "cavity_depth", "clearance")
@@ -202,12 +202,15 @@ Part.export([b], r'{female}')
 
 
 def generate_engineering_artifacts(root: Path, plan: dict[str, Any], design: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Run all native / scaffold engines. Electronics always produces a structured scaffold."""
-    electronics = generate_electronics(root, plan, design or {})
+    """Run datasheet verification, then native / scaffold engines."""
+    design = design or {}
+    datasheet = verify_from_uploaded_datasheets(root, plan, design)
+    electronics = generate_electronics(root, plan, design)
     firmware = generate_firmware(root, plan)
     mechanical = generate_mechanical(root, plan)
     connector = generate_proprietary_connector(root, plan)
     return {
+        "datasheet_verification": datasheet,
         "electronics": electronics,
         "firmware": firmware,
         "mechanical": mechanical,
@@ -215,7 +218,8 @@ def generate_engineering_artifacts(root: Path, plan: dict[str, Any], design: dic
         "release_state": "ENGINEERING_PACKAGE_GENERATED_PENDING_REVIEW",
         "fabrication_ready": False,
         "notice": (
-            "Native and scaffold artefacts are generated under evidence gates. "
+            "Datasheet hooks ground component identity only from uploaded file text. "
+            "Native and scaffold artefacts use evidence gates. "
             "Tool success is not safety, EMC, environmental, prototype or manufacturing certification."
         ),
     }
