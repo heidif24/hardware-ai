@@ -97,6 +97,7 @@ def probe_toolchains() -> dict[str, Any]:
         "arm_none_eabi_gcc": ["arm-none-eabi-gcc", "--version"],
         "avr_gcc": ["avr-gcc", "--version"],
         "cmake": ["cmake", "--version"],
+        "platformio": ["platformio", "--version"],
     }
     inventory: dict[str, Any] = {}
     for name, command in probes.items():
@@ -147,6 +148,28 @@ def validate_kicad(root: Path) -> list[dict[str, Any]]:
             results.append(run_command(["kicad-cli", "pcb", "export", "gerbers", "--output", str(gerber_dir) + "/", str(board)], cwd=root))
             results.append(run_command(["kicad-cli", "pcb", "export", "drill", "--output", str(drill_dir) + "/", str(board)], cwd=root))
     return results
+
+
+def generate_native_project_scaffold(root: Path, job: dict[str, Any]) -> list[dict[str, Any]]:
+    """Create a self-contained engineering workspace contract for downstream generators."""
+    design = job.get("design", {})
+    architecture = root / "00_Foundry_Generation"
+    architecture.mkdir(parents=True, exist_ok=True)
+    manifest = {
+        "project": job.get("project_name"),
+        "design": design,
+        "decisions": job.get("decision_selections", {}),
+        "stages": ["electronics", "pcb", "firmware", "mechanical", "validation"],
+        "native_engines": {
+            "electronics": "KiCad CLI",
+            "pcb": "KiCad CLI",
+            "firmware": "PlatformIO / installed GCC toolchains",
+            "mechanical": "FreeCADCmd",
+        },
+        "release_boundary": "Generation scaffolds are not fabrication approval; each native artifact must pass applicable validation.",
+    }
+    (architecture / "generation_manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    return [{"passed": True, "status": "ENGINEERING_WORKSPACE_INITIALIZED", "file": "00_Foundry_Generation/generation_manifest.json"}]
 
 
 def validate_firmware(root: Path) -> list[dict[str, Any]]:
@@ -231,11 +254,12 @@ def execute_job(path: Path) -> None:
     try:
         toolchains = probe_toolchains()
         uploaded = job.get("uploaded_files", [])
+        workspace_generation = generate_native_project_scaffold(path / "workspace", job)
         innovation = build_innovation_dossier(path / "workspace", job.get("design", {}), job.get("decision_selections", {}), job.get("global_notes", ""))
         electronics = validate_kicad(path / "workspace")
         firmware = validate_firmware(path / "workspace")
         mechanical = inspect_mechanical_files(path / "workspace")
-        checks = {"Generative innovation": innovation, "KiCad": electronics, "Firmware": firmware, "Mechanical": mechanical}
+        checks = {"Engineering workspace": workspace_generation, "Generative innovation": innovation, "KiCad": electronics, "Firmware": firmware, "Mechanical": mechanical}
         report = build_report(job, toolchains, uploaded, checks)
         (path / "workspace" / "09_Testing_And_Validation").mkdir(parents=True, exist_ok=True)
         (path / "workspace" / "09_Testing_And_Validation" / "engineering_execution_report.md").write_text(report, encoding="utf-8")
