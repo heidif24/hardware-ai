@@ -54,13 +54,23 @@ function validatePlan(value:unknown):{plan:Obj;missing:string[]} {
  const missing:string[]=[];
  const gates=p.generation_gates;
  if(!gates||typeof gates!=="object"||Array.isArray(gates))throw new Error("generation_gates must be an object.");
- for(const [name,g] of Object.entries(gates as Obj)){
-  if(!g||typeof g!=="object"||Array.isArray(g))throw new Error("Invalid generation gate: "+name);
-  const gate=g as Obj;if(gate.status!=="READY"&&gate.status!=="BLOCKED")throw new Error("Gate "+name+" must be READY or BLOCKED.");
-  if(gate.status==="BLOCKED"&&Array.isArray(gate.missing_inputs))missing.push(...gate.missing_inputs.map(String));
+ const requiredStages=["electronics","pcb","firmware","mechanical"];
+ for(const stage of requiredStages){
+  const existing=(gates as Obj)[stage];
+  const gate=existing&&typeof existing==="object"&&!Array.isArray(existing)?existing as Obj:{};
+  const missingByStage:Record<string,string[]>={
+   electronics:["Verified component identities and manufacturer datasheets","Electrical ratings, pin-level design and verified symbol/footprint mapping","Engineer-reviewed schematic and ERC report"],
+   pcb:["Validated schematic/netlist","Verified footprints, board outline, stackup and placement constraints","Routed PCB and DRC review"],
+   firmware:["Frozen MCU/board identity and pin map","Trusted SDK, build configuration and peripheral specifications","Board-specific compile and hardware test evidence"],
+   mechanical:["User-specified or source-verified dimensions and tolerances","Material/process selection and mating/interface constraints","Generated CAD geometry with dimensional and interference checks"]
+  };
+  // A language model cannot self-certify evidence. With no attached, independently verified engineering-source package in this request, every native stage remains blocked.
+  gate.status="BLOCKED";
+  gate.missing_inputs=[...new Set([...(Array.isArray(gate.missing_inputs)?gate.missing_inputs.map(String):[]),...missingByStage[stage]])];
+  (gates as Obj)[stage]=gate;
+  missing.push(...(gate.missing_inputs as string[]));
  }
- // Never trust the model's global status if any stage is blocked.
- p.engineering_status=Object.keys(gates as Obj).length&&Object.values(gates as Obj).every((g)=>!!g&&typeof g==="object"&&(g as Obj).status==="READY")?"READY_FOR_NATIVE_GENERATION":"PARTIALLY_BLOCKED";
+ p.engineering_status="ENGINEERING_PLAN_READY_NATIVE_GENERATION_BLOCKED_PENDING_VERIFIED_INPUTS";
  p.unresolved_inputs=Array.isArray(p.unresolved_inputs)?p.unresolved_inputs:[];
  p.schema_version="1.0";
  return {plan:p,missing:[...new Set(missing)]};
