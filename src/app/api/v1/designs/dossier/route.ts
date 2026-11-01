@@ -75,7 +75,7 @@ function mechanicalEnvelope(b: P, d: D): string {
     "",
     "**Product:** " + d.product_name,
     "",
-    "This section gives the engineering company a starting mechanical envelope. Values may be targets or unknowns — freeze dimensions during detailed design.",
+    "This section gives the engineering company a starting mechanical envelope. Values may be targets or unknowns. Freeze dimensions during detailed design.",
     "",
     "## Target envelope",
     dimLines.length ? dimLines.join("\n") : "- Overall dimensions not frozen in this package. Derive envelope from the product brief, constraints and prototype goals.",
@@ -88,7 +88,7 @@ function mechanicalEnvelope(b: P, d: D): string {
     "",
     "## Industrial design notes",
     "- Prefer a clean, production-intent form suitable for early prototypes.",
-    "- Concept imagery in this package is illustrative only — not dimensionally controlled CAD.",
+    "- Concept imagery in this package is illustrative only, not dimensionally controlled CAD.",
     "- Propose material, draft, fasteners, sealing and assembly method in the prototype quotation.",
     "- Align connector placement, indicators and service access with the functional architecture.",
     "",
@@ -103,7 +103,7 @@ function mechanicalEnvelope(b: P, d: D): string {
 
 function engineeringCompanyCover(b: P, d: D, hasRender: boolean): string {
   return [
-    "# Cover note — for the engineering company",
+    "# Cover note - for the engineering company",
     "",
     "**Product:** " + d.product_name,
     "**Package type:** Concept engineering handoff for prototype quotation and detailed design",
@@ -129,7 +129,7 @@ function engineeringCompanyCover(b: P, d: D, hasRender: boolean): string {
     "- Mechanical envelope / industrial design inputs",
     "- Candidate functional BOM (classes, not frozen manufacturer part numbers)",
     "- Architecture diagram (SVG/PNG)",
-    hasRender ? "- Product concept visual (illustrative PNG)" : "- Product concept visual (not generated — image service not configured)",
+    hasRender ? "- Product concept visual (illustrative PNG)" : "- Product concept visual (not generated - image service not configured)",
     "- Verification checklist and manufacturing hand-off notes",
     "",
     "## What is intentionally not included (to be developed with you)",
@@ -152,13 +152,13 @@ function engineeringCompanyCover(b: P, d: D, hasRender: boolean): string {
 }
 
 function architectureSvg(d: D) {
-  const esc = (s: string) => s.replace(/&/g, "&").replace(/</g, "<").replace(/>/g, ">").replace(/"/g, """);
+  const esc = (s: string) => s.replace(/[^\x20-\x7E]/g, "").replace(/[<>&"']/g, "");
   const cards = d.modules.map((m, i) => {
     const y = 132 + i * 108;
     return `<rect x="55" y="${y}" width="890" height="80" rx="12" fill="#111b1a" stroke="#50604a"/><text x="82" y="${y + 29}" fill="#c1f27a" font-family="Arial" font-size="19" font-weight="bold">${esc(m.name)}</text><text x="82" y="${y + 55}" fill="#d3ded7" font-family="Arial" font-size="13">${esc(m.purpose.slice(0, 115))}</text>`;
   }).join("");
   const h = 170 + d.modules.length * 108;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="${h}" viewBox="0 0 1000 ${h}"><rect width="100%" height="100%" fill="#090f10"/><text x="55" y="42" fill="#c1f27a" font-family="Arial" font-size="12" letter-spacing="4">HARDWARE FOUNDRY / FUNCTIONAL ARCHITECTURE</text><text x="55" y="91" fill="#f1f5f2" font-family="Arial" font-size="25" font-weight="bold">${esc(d.product_name)}</text>${cards}<text x="55" y="${h - 20}" fill="#91a09b" font-family="Arial" font-size="11">CONCEPT ONLY — NOT A VERIFIED SCHEMATIC OR FABRICATION RELEASE</text></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="${h}" viewBox="0 0 1000 ${h}"><rect width="100%" height="100%" fill="#090f10"/><text x="55" y="42" fill="#c1f27a" font-family="Arial" font-size="12" letter-spacing="4">HARDWARE FOUNDRY / FUNCTIONAL ARCHITECTURE</text><text x="55" y="91" fill="#f1f5f2" font-family="Arial" font-size="25" font-weight="bold">${esc(d.product_name)}</text>${cards}<text x="55" y="${h - 20}" fill="#91a09b" font-family="Arial" font-size="11">CONCEPT ONLY - NOT A VERIFIED SCHEMATIC OR FABRICATION RELEASE</text></svg>`;
 }
 
 async function renderProductConcept(b: P, d: D): Promise<{png: Uint8Array; model: string} | null> {
@@ -215,7 +215,7 @@ export async function POST(req: NextRequest) {
   try {
     const b = (await req.json()) as P;
     if (!b || typeof b.idea !== "string" || b.idea.trim().length < 8 || b.idea.length > 4000) {
-      return NextResponse.json({ detail: "A product brief of 8–4,000 characters is required." }, { status: 422 });
+      return NextResponse.json({ detail: "A product brief of 8-4,000 characters is required." }, { status: 422 });
     }
     const d = b.design;
     if (!d || typeof d.product_name !== "string" || !Array.isArray(d.modules) || !d.modules.length || d.modules.length > 20) {
@@ -254,7 +254,7 @@ export async function POST(req: NextRequest) {
       "## Summary for the engineering company",
       proposedSummary, "",
       "## Functional modules",
-      ...d.modules.map((m, i) => i + 1 + ". **" + m.name + "** — " + m.purpose), "",
+      ...d.modules.map((m, i) => i + 1 + ". **" + m.name + "** - " + m.purpose), "",
       "## Open work before fabrication",
       "- Select exact components from current datasheets",
       "- Capture and review schematic (ERC)",
@@ -306,19 +306,19 @@ export async function POST(req: NextRequest) {
     const cover = engineeringCompanyCover(b, d, Boolean(productRender));
 
     const bom = ["Reference,Functional block,Candidate class,Selection status,Engineering note"];
-    for (const m of d.modules) for (const p of m.parts || []) bom.push([m.id || m.name, m.name, p, "UNSELECTED — CANDIDATE ONLY", "Verify ratings, lifecycle, package, footprint and compliance against datasheet"].map(csv).join(","));
+    for (const m of d.modules) for (const p of m.parts || []) bom.push([m.id || m.name, m.name, p, "UNSELECTED - CANDIDATE ONLY", "Verify ratings, lifecycle, package, footprint and compliance against datasheet"].map(csv).join(","));
 
     const checklist = [
       "Asset,Required for fabrication hand-off,Package status",
-      "Product requirements baseline,Yes,Included — concept level",
-      "Functional architecture,Yes,Included — concept level",
-      "Proposed final design,Yes,Included — concept level",
-      "Mechanical envelope inputs,Yes,Included — targets / open items",
+      "Product requirements baseline,Yes,Included - concept level",
+      "Functional architecture,Yes,Included - concept level",
+      "Proposed final design,Yes,Included - concept level",
+      "Mechanical envelope inputs,Yes,Included - targets / open items",
       "Candidate BOM,Yes,Functional classes only",
-      "Manufacturer part numbers and datasheets,Yes,NOT INCLUDED — develop during prototype",
-      "KiCad schematic source,Yes,NOT INCLUDED — develop during prototype",
-      "PCB layout and Gerbers,Yes,NOT INCLUDED — develop during prototype",
-      "STEP enclosure CAD,As required,NOT INCLUDED — develop during prototype",
+      "Manufacturer part numbers and datasheets,Yes,NOT INCLUDED - develop during prototype",
+      "KiCad schematic source,Yes,NOT INCLUDED - develop during prototype",
+      "PCB layout and Gerbers,Yes,NOT INCLUDED - develop during prototype",
+      "STEP enclosure CAD,As required,NOT INCLUDED - develop during prototype",
       "Prototype verification evidence,Yes,NOT INCLUDED",
       "Qualified engineering approval,Yes,NOT PROVIDED",
     ].join("\n");
@@ -335,7 +335,7 @@ export async function POST(req: NextRequest) {
     ].join("\n");
 
     const nda = [
-      "# Mutual confidentiality agreement — discussion template", "",
+      "# Mutual confidentiality agreement - discussion template", "",
       "> TEMPLATE ONLY. Not legal advice. Not signed or effective until completed and executed by counsel-reviewed agreement.", "",
       "## Purpose",
       "Evaluation of a potential engineering or manufacturing relationship concerning: " + d.product_name + ".", "",
