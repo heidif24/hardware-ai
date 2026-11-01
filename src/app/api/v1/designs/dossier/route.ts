@@ -22,9 +22,9 @@ async function renderProductConcept(b:P,d:D):Promise<{png:Uint8Array;model:strin
  ].join("\n");
  const response=await fetch("https://api.replicate.com/v1/models/"+model+"/predictions",{
   method:"POST",
-  headers:{Authorization:"Bearer "+token,"Content-Type":"application/json",Prefer:"wait=60","Cancel-After":"60s"},
+  headers:{Authorization:"Bearer "+token,"Content-Type":"application/json",Prefer:"wait=40","Cancel-After":"50s"},
   body:JSON.stringify({input:{prompt,aspect_ratio:"4:3",output_format:"png",output_quality:100,safety_tolerance:2,prompt_upsampling:true}}),
-  signal:AbortSignal.timeout(60000)
+  signal:AbortSignal.timeout(45000)
  });
  if(!response.ok)throw new Error("Replicate image generation failed with HTTP "+response.status+". Check the token, model access and account balance.");
  const prediction=await response.json() as {status?:string;output?:string|string[];error?:string;urls?:{get?:string}};
@@ -32,8 +32,8 @@ async function renderProductConcept(b:P,d:D):Promise<{png:Uint8Array;model:strin
  if(prediction.status!=="succeeded"||!output){
   if(!prediction.urls?.get)throw new Error("Image generation did not return a completed image.");
   let current=prediction;
-  for(let i=0;i<8&&current.status!=="succeeded";i++){
-   await new Promise(resolve=>setTimeout(resolve,1500));
+  for(let i=0;i<5&&current.status!=="succeeded";i++){
+   await new Promise(resolve=>setTimeout(resolve,1000));
    const poll=await fetch(current.urls?.get||prediction.urls.get,{headers:{Authorization:"Bearer "+token},signal:AbortSignal.timeout(8000)});
    if(!poll.ok)throw new Error("Could not retrieve the generated product render.");
    current=await poll.json() as typeof prediction;
@@ -45,7 +45,7 @@ async function renderProductConcept(b:P,d:D):Promise<{png:Uint8Array;model:strin
  if(typeof imageUrl!=="string")throw new Error("Image provider returned an invalid image reference.");
  const parsed=new URL(imageUrl);
  if(parsed.protocol!=="https:"||!(parsed.hostname==="replicate.delivery"||parsed.hostname.endsWith(".replicate.delivery")))throw new Error("Image provider returned an untrusted file host.");
- const imageResponse=await fetch(parsed.toString(),{signal:AbortSignal.timeout(15000)});
+ const imageResponse=await fetch(parsed.toString(),{signal:AbortSignal.timeout(10000)});
  if(!imageResponse.ok)throw new Error("Could not download the generated product render.");
  const source=Buffer.from(await imageResponse.arrayBuffer());
  if(source.byteLength>15*1024*1024)throw new Error("Generated image exceeds the 15 MB export limit.");
