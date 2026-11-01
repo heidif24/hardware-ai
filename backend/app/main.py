@@ -78,3 +78,18 @@ async def production_bundle(payload:dict):
   quote={"product":design.get("product_name"),"requested_quantity":payload.get("quantity",100),"target_unit_cost_usd":payload.get("target_unit_cost"),"board_dimensions_mm":"TO BE ENGINEERED","layers":"TO BE ENGINEERED","surface_finish":"Factory recommendation after design review","assembly":"SMT/PCBA quote requested","status":"RFQ_PREPARATION_ONLY","required_vendor_review":["Gerber and drill files from validated PCB CAD","BOM with manufacturer part numbers and approved alternates","Centroid / pick-and-place file from validated PCB layout","Board stack-up, dimensions, thickness and copper weight","Assembly drawings, test plan and programming requirements"]}
   z.writestr("factory_RFQ_request.json",json.dumps(quote,indent=2));z.writestr("FACTORY_HANDOFF_README.txt","HARDWARE FOUNDRY — ENGINEERING CONCEPT / RFQ PREPARATION\n\nThis package is not a fabrication release. It does not contain Gerber, drill, IPC netlist, verified footprints, pick-and-place coordinates, assembly drawings or validated electrical design. Do not order PCBs from this concept package. A qualified hardware engineer must complete schematic capture, component verification, PCB layout, ERC/DRC, stack-up and manufacturing review. Submit the resulting verified files to JLCPCB or PCBWay for a formal quotation.\n")
  mem.seek(0);return StreamingResponse(mem,media_type="application/zip",headers={"Content-Disposition":"attachment; filename=hardware-foundry-factory-RFQ-preparation.zip"})
+
+
+from .dossier import build_dossier
+
+@app.post("/api/v1/designs/manufacturing-package")
+async def manufacturing_package(payload:dict):
+    try:
+        archive, filename = build_dossier(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return Response(
+        content=archive,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"', "Cache-Control": "no-store"}
+    )
