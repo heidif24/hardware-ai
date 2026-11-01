@@ -32,6 +32,12 @@ The full dossier export can generate a product-specific photorealistic 3D concep
 
 The render is a visual concept, not dimensionally accurate CAD, a validated enclosure, a verified circuit, or manufacturing evidence. The separate `functional_architecture.png` is a raster diagram preview.
 
+## Generative engineering and Foundry interface family
+
+Hardware Foundry now treats novelty as an engineering candidate rather than a cosmetic choice. Every approved design can produce three comparison paths: a conventional baseline, a proven optimisation path, and a Foundry innovation path. The worker records the comparison criteria and the evidence required before a novel idea can be released.
+
+The reusable **Foundry Interface Family** is generated from shared design DNA rather than a hardcoded connector catalogue. The system selects or proposes a family variant according to electrical roles, power envelope, signalling, environment, mating cycles, cable strain and enclosure constraints. Generated family definitions are **concept-level contracts** until component selection, pin assignments, tolerance analysis and prototype testing are complete.
+
 ## Product workflow
 
 1. Enter a product brief and known engineering constraints.
