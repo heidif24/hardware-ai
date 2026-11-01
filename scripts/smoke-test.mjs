@@ -42,7 +42,7 @@ try {
   const dossier = await fetch(`${base}/api/v1/designs/dossier`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ ...brief, design }),
+    body: JSON.stringify({ ...brief, design, include_product_render: false }),
   });
   assert.equal(dossier.status, 200, "dossier endpoint must return HTTP 200");
   assert.match(dossier.headers.get("content-type") || "", /application\/zip/, "dossier must be a ZIP");
@@ -67,7 +67,8 @@ try {
   assert.ok(width >= 800 && height >= 300, "architecture PNG must have useful dimensions");
 
   const manifest = JSON.parse(new TextDecoder().decode(archive["package_manifest.json"]));
-  assert.ok(manifest.included_files.includes("functional_architecture.png"), "manifest must list the PNG");
+  assert.ok(manifest.included_files.includes("functional_architecture.png"), "manifest must list the architecture PNG");
+  assert.ok(manifest.missing_visual_assets.some((asset) => asset.includes("Photorealistic product concept PNG")), "manifest must explicitly disclose an unconfigured product render");
   console.log(`Smoke test passed: synthesis -> dossier ZIP -> ${width}x${height} PNG; ${Object.keys(archive).length} files.`);
 } finally {
   server.kill("SIGTERM");
