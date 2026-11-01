@@ -8,7 +8,7 @@ type Module={id:string;name:string;purpose:string;interfaces:string[];parts:stri
 type EngineeringSpec={product_definition:string;intended_users:string[];operating_environment:string[];functional_requirements:string[];performance_requirements:string[];electrical_requirements:string[];mechanical_requirements:string[];interfaces_and_protocols:string[];firmware_requirements:string[];manufacturing_requirements:string[];verification_requirements:string[];open_questions:string[]};
 type DecisionOption={id:string;label:string;description:string;advantages:string[];tradeoffs:string[]};
 type Decision={id:string;title:string;context:string;recommended:string;reason:string;options:DecisionOption[];requires_confirmation:boolean};
-type Design={decision_points:Decision[];product_name:string;summary:string;assumptions:string[];modules:Module[];risks:string[];engineering_specification:EngineeringSpec;validation_status:"concept_only";estimated_complexity:string;generation_mode:string;generation_provider?:string;generation_notice?:string};
+type Design={decision_points?:Decision[];product_name:string;summary:string;assumptions:string[];modules:Module[];risks:string[];engineering_specification:EngineeringSpec;validation_status:"concept_only";estimated_complexity:string;generation_mode:string;generation_provider?:string;generation_notice?:string};
 
 const SYSTEM_PROMPT=`You are a multidisciplinary principal hardware product-development team: systems architect, electronics engineer, embedded firmware engineer, mechanical/product designer, manufacturing engineer and verification engineer. Convert the user's idea into a coherent physical device definition that an engineering company can use as the starting point for detailed development.
 
