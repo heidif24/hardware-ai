@@ -52,6 +52,8 @@ function validatePlan(value:unknown):{plan:Obj;missing:string[]} {
  const required=["system_architecture","component_candidates","electrical_design","interface_design","pcb_design","firmware_design","mechanical_design","verification_plan","generation_gates","unresolved_inputs"];
  for(const k of required)if(!(k in p))throw new Error("Engineering plan is missing "+k);
  const missing:string[]=[];
+ if(!Array.isArray(p.component_candidates))throw new Error("component_candidates must be an array.");
+ p.component_candidates=(p.component_candidates as unknown[]).map((item)=>{if(!item||typeof item!=="object"||Array.isArray(item))return {identity_status:"UNVERIFIED_FUNCTIONAL_CLASS",description:String(item)};const candidate={...(item as Obj)};if((candidate.part_number||candidate.manufacturer)&&(!candidate.source_reference||!candidate.evidence_excerpt)){delete candidate.part_number;delete candidate.manufacturer;candidate.identity_status="UNVERIFIED_FUNCTIONAL_CLASS";candidate.identity_note="Specific manufacturer identity removed because no supplied source evidence supports it.";}return candidate;});
  const gates=p.generation_gates;
  if(!gates||typeof gates!=="object"||Array.isArray(gates))throw new Error("generation_gates must be an object.");
  const requiredStages=["electronics","pcb","firmware","mechanical"];
