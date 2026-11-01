@@ -35,6 +35,122 @@ const list = (a: string[] | undefined) => (a?.length ? a.map((x) => "- " + x).jo
 const csv = (s: string) => '"' + s.replace(/"/g, '""') + '"';
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 55) || "hardware-product";
 
+function numFromPlan(params: Record<string, unknown> | undefined, key: string): number | null {
+  if (!params) return null;
+  const item = params[key];
+  if (typeof item === "number" && item > 0 && item < 10000) return item;
+  if (item && typeof item === "object" && !Array.isArray(item)) {
+    const o = item as Record<string, unknown>;
+    const basis = o.value_basis;
+    if (basis === "user_specified" || basis === "source_verified" || basis === "calculated_with_method") {
+      const v = o.value;
+      if (typeof v === "number" && v > 0 && v < 10000) return v;
+    }
+  }
+  return null;
+}
+
+function mechanicalEnvelope(b: P, d: D): string {
+  const plan = b.engineering_plan && typeof b.engineering_plan === "object" ? (b.engineering_plan as Record<string, unknown>) : null;
+  const mech = plan && typeof plan.mechanical_design === "object" ? (plan.mechanical_design as Record<string, unknown>) : null;
+  const params = mech && typeof mech.parameters === "object" ? (mech.parameters as Record<string, unknown>) : undefined;
+  const L = numFromPlan(params, "length") || numFromPlan(params, "board_length");
+  const W = numFromPlan(params, "width") || numFromPlan(params, "board_width");
+  const H = numFromPlan(params, "height") || numFromPlan(params, "board_height");
+  const wall = numFromPlan(params, "wall");
+  const floor = numFromPlan(params, "floor");
+
+  const dimLines: string[] = [];
+  if (L) dimLines.push("- **Length:** " + L + " mm");
+  if (W) dimLines.push("- **Width:** " + W + " mm");
+  if (H) dimLines.push("- **Height:** " + H + " mm");
+  if (wall) dimLines.push("- **Wall thickness (target):** " + wall + " mm");
+  if (floor) dimLines.push("- **Floor thickness (target):** " + floor + " mm");
+
+  const interfaces = d.modules.flatMap((m) => (m.interfaces || []).map((i) => m.name + ": " + i));
+  const uniqueIfaces = [...new Set(interfaces)].slice(0, 24);
+
+  return [
+    "# Mechanical envelope and industrial design inputs",
+    "",
+    "**Product:** " + d.product_name,
+    "",
+    "This section gives the engineering company a starting mechanical envelope. Values may be targets or unknowns — freeze dimensions during detailed design.",
+    "",
+    "## Target envelope",
+    dimLines.length ? dimLines.join("\n") : "- Overall dimensions not frozen in this package. Derive envelope from the product brief, constraints and prototype goals.",
+    "",
+    "## Constraints and environment (from brief)",
+    clean(b.constraints, "No mechanical or environmental constraints were supplied in the brief."),
+    "",
+    "## External interfaces to plan for",
+    uniqueIfaces.length ? uniqueIfaces.map((x) => "- " + x).join("\n") : "- Interfaces to be confirmed during detailed design.",
+    "",
+    "## Industrial design notes",
+    "- Prefer a clean, production-intent form suitable for early prototypes.",
+    "- Concept imagery in this package is illustrative only — not dimensionally controlled CAD.",
+    "- Propose material, draft, fasteners, sealing and assembly method in the prototype quotation.",
+    "- Align connector placement, indicators and service access with the functional architecture.",
+    "",
+    "## Deliverables expected from the engineering company (mechanical)",
+    "1. Controlled 3D enclosure CAD (STEP preferred) with critical dimensions.",
+    "2. PCB keep-out / board outline recommendation.",
+    "3. Connector and UI cutout plan.",
+    "4. Prototype process recommendation (e.g. CNC, SLA, sheet metal) and approximate unit cost band.",
+    "",
+  ].join("\n");
+}
+
+function engineeringCompanyCover(b: P, d: D, hasRender: boolean): string {
+  return [
+    "# Cover note — for the engineering company",
+    "",
+    "**Product:** " + d.product_name,
+    "**Package type:** Concept engineering handoff for prototype quotation and detailed design",
+    "**Release state:** ENGINEERING_DOSSIER_NOT_FABRICATION_RELEASE",
+    "",
+    "## Purpose of this package",
+    "This ZIP is a structured starting brief so your team can quote and begin prototype development. It is not a fabrication release, certified design package, or frozen BOM.",
+    "",
+    "## What the customer is asking for",
+    b.idea.trim(),
+    "",
+    "## Constraints supplied",
+    clean(b.constraints),
+    "",
+    "## Initial quantity context",
+    String(b.quantity || "Not specified"),
+    "",
+    "## What is included",
+    "- Product brief and requirements baseline",
+    "- Approved design decisions (customer selections)",
+    "- Functional architecture and engineering design report",
+    "- Proposed final design direction",
+    "- Mechanical envelope / industrial design inputs",
+    "- Candidate functional BOM (classes, not frozen manufacturer part numbers)",
+    "- Architecture diagram (SVG/PNG)",
+    hasRender ? "- Product concept visual (illustrative PNG)" : "- Product concept visual (not generated — image service not configured)",
+    "- Verification checklist and manufacturing hand-off notes",
+    "",
+    "## What is intentionally not included (to be developed with you)",
+    "- Frozen manufacturer part numbers and full datasheet pack",
+    "- Pin-correct schematic and reviewed PCB layout",
+    "- Production Gerbers, drill and pick-and-place",
+    "- Tooling-ready mechanical CAD",
+    "- Regulatory test evidence and formal certification",
+    "",
+    "## Suggested next steps",
+    "1. Review this package under NDA if required.",
+    "2. Confirm understanding of product intent, constraints and open risks.",
+    "3. Propose prototype scope: schematic, PCB, enclosure, firmware, test plan, timeline and cost.",
+    "4. Freeze components, complete detailed design, build and verify prototypes.",
+    "",
+    "## Contact posture",
+    "Treat this as a collaborative prototype briefing. Questions and clarifications are expected. Do not manufacture production volumes from this package alone.",
+    "",
+  ].join("\n");
+}
+
 function architectureSvg(d: D) {
   const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&", "<": "<", ">": ">", '"': """ }[c]!));
   const cards = d.modules.map((m, i) => {
@@ -52,11 +168,11 @@ async function renderProductConcept(b: P, d: D): Promise<{png: Uint8Array; model
   if (!/^[a-z0-9-]+\/[a-z0-9-]+$/i.test(model)) return null;
   const moduleSummary = d.modules.map((m) => m.name + ": " + m.purpose).join("; ").slice(0, 1400);
   const prompt = [
-    "Photorealistic premium industrial-design 3D product concept of: " + b.idea.trim(),
+    "Photorealistic premium industrial-design product concept photography of: " + b.idea.trim(),
     "Constraints: " + clean(b.constraints, "Not supplied"),
-    "Architecture: " + moduleSummary,
-    "Three-quarter front view, realistic materials, studio lighting, neutral background.",
-    "No logos, text, people or watermark. Visual concept only, not dimensionally accurate CAD.",
+    "Architecture cues: " + moduleSummary,
+    "Clean mechanical product form, three-quarter front view, realistic materials and finishes, soft studio lighting, neutral seamless background.",
+    "No logos, no text overlays, no people, no watermark. Illustrative industrial design concept only, not dimensionally accurate engineering CAD.",
   ].join("\n");
   try {
     const response = await fetch("https://api.replicate.com/v1/models/" + model + "/predictions", {
@@ -115,7 +231,9 @@ export async function POST(req: NextRequest) {
     }
 
     const now = new Date().toISOString();
-    const productRender = b.include_product_render === true ? await renderProductConcept(b, d) : null;
+    // Always attempt concept render when Replicate is configured (UI already requests it; server does not skip if token exists).
+    const wantRender = b.include_product_render !== false;
+    const productRender = wantRender ? await renderProductConcept(b, d) : null;
     const assumptions = d.assumptions || [];
     const risks = d.risks || [];
     const architectureSvgStr = architectureSvg(d);
@@ -130,26 +248,21 @@ export async function POST(req: NextRequest) {
           ": proceed from the approved design basis and functional architecture, freeze power and environmental requirements, then complete schematic, PCB, enclosure CAD and firmware under normal engineering review. This package is a structured briefing for detailed design, not a fabrication release.";
 
     const proposedFinal = [
-      "# Proposed final design",
-      "",
+      "# Proposed final design", "",
       "**Product:** " + d.product_name,
       "**Generated:** " + now,
-      "**Status:** Proposed design basis for engineering hand-off",
-      "",
+      "**Status:** Proposed design basis for engineering hand-off", "",
       "## Summary for the engineering company",
-      proposedSummary,
-      "",
+      proposedSummary, "",
       "## Functional modules",
-      ...d.modules.map((m, i) => i + 1 + ". **" + m.name + "** — " + m.purpose),
-      "",
+      ...d.modules.map((m, i) => i + 1 + ". **" + m.name + "** — " + m.purpose), "",
       "## Open work before fabrication",
       "- Select exact components from current datasheets",
       "- Capture and review schematic (ERC)",
       "- Complete PCB layout and DRC",
       "- Finalise enclosure CAD with controlled dimensions",
       "- Implement and test board-specific firmware",
-      "- Run verification against the test plan",
-      "",
+      "- Run verification against the test plan", "",
       "This document presents the recommended starting point. It does not authorise fabrication.",
     ].join("\n");
 
@@ -172,13 +285,14 @@ export async function POST(req: NextRequest) {
       "**Status:** " + clean(d.validation_status, "concept_only"), "",
       "## Summary", clean(d.summary), "",
       "## Proposed final design", "See 02_System_Architecture/proposed_final_design.md.", "",
+      "## Mechanical envelope", "See 06_Mechanical/mechanical_envelope.md.", "",
       "## Functional architecture",
       "| Module | Purpose | Interfaces | Candidate classes |", "|---|---|---|---|", rows, "",
       "## Assumptions", list(assumptions), "",
       "## Risks and required work", list(risks), "",
       "## Design maturity",
-      "This is a concept-level planning artefact, not a verified electrical design, mechanical CAD release, safety assessment, compliance report or approved manufacturing package.", "",
-      "## Required gates",
+      "This is a concept-level planning artefact for prototype engagement. It is not a verified electrical design, mechanical CAD release, safety assessment, compliance report or approved manufacturing package.", "",
+      "## Required gates before production",
       "1. Freeze requirements and measurable acceptance criteria.",
       "2. Select exact components using current datasheets.",
       "3. Capture schematics and complete ERC review.",
@@ -189,6 +303,8 @@ export async function POST(req: NextRequest) {
     ].join("\n");
 
     const requirements = ["# Requirements baseline", "", "## Product intent", b.idea.trim(), "", "## Constraints supplied", clean(b.constraints), "", "## Design assumptions", list(assumptions), "", "## Open risks", list(risks)].join("\n");
+    const envelope = mechanicalEnvelope(b, d);
+    const cover = engineeringCompanyCover(b, d, Boolean(productRender));
 
     const bom = ["Reference,Functional block,Candidate class,Selection status,Engineering note"];
     for (const m of d.modules) for (const p of m.parts || []) bom.push([m.id || m.name, m.name, p, "UNSELECTED — CANDIDATE ONLY", "Verify ratings, lifecycle, package, footprint and compliance against datasheet"].map(csv).join(","));
@@ -198,22 +314,23 @@ export async function POST(req: NextRequest) {
       "Product requirements baseline,Yes,Included — concept level",
       "Functional architecture,Yes,Included — concept level",
       "Proposed final design,Yes,Included — concept level",
+      "Mechanical envelope inputs,Yes,Included — targets / open items",
       "Candidate BOM,Yes,Functional classes only",
-      "Manufacturer part numbers and datasheets,Yes,NOT INCLUDED",
-      "KiCad schematic source,Yes,NOT INCLUDED",
-      "PCB layout and Gerbers,Yes,NOT INCLUDED",
-      "STEP enclosure CAD,As required,NOT INCLUDED",
+      "Manufacturer part numbers and datasheets,Yes,NOT INCLUDED — develop during prototype",
+      "KiCad schematic source,Yes,NOT INCLUDED — develop during prototype",
+      "PCB layout and Gerbers,Yes,NOT INCLUDED — develop during prototype",
+      "STEP enclosure CAD,As required,NOT INCLUDED — develop during prototype",
       "Prototype verification evidence,Yes,NOT INCLUDED",
       "Qualified engineering approval,Yes,NOT PROVIDED",
     ].join("\n");
 
     const handoff = [
       "# Manufacturing hand-off notes", "",
-      "This package is a controlled engineering discussion starter, not a fabrication release.", "",
+      "This package is a controlled engineering discussion starter for prototype work, not a fabrication release.", "",
       "1. Independently identify and vet the prospective engineering or manufacturing partner.",
       "2. Agree and sign a suitable mutual NDA before disclosing confidential technical information.",
       "3. Share only the minimum appropriate documents under the signed agreement.",
-      "4. Complete missing electrical/mechanical CAD, verification and compliance under normal engineering process.",
+      "4. Complete electrical/mechanical detailed design, verification and compliance under normal engineering process.",
       "5. Issue an approved fabrication package only after qualified engineering sign-off.", "",
       "**Release state: ENGINEERING_DOSSIER_NOT_FABRICATION_RELEASE**",
     ].join("\n");
@@ -227,6 +344,7 @@ export async function POST(req: NextRequest) {
     ].join("\n");
 
     const included = [
+      "00_Cover/for_engineering_company.md",
       "package_manifest.json",
       "01_Product_Definition/product_brief.json",
       "01_Product_Definition/requirements_baseline.md",
@@ -236,6 +354,7 @@ export async function POST(req: NextRequest) {
       "02_System_Architecture/proposed_final_design.md",
       "02_System_Architecture/functional_architecture.svg",
       "02_System_Architecture/functional_architecture.png",
+      "06_Mechanical/mechanical_envelope.md",
       "07_BOM_And_Assembly/candidate_bom.csv",
       "09_Testing_And_Validation/engineering_release_checklist.csv",
       "10_Manufacturing_Handover/manufacturing_handoff.md",
@@ -247,8 +366,9 @@ export async function POST(req: NextRequest) {
       package_name: d.product_name,
       generated_at: now,
       release_state: "ENGINEERING_DOSSIER_NOT_FABRICATION_RELEASE",
+      purpose: "Prototype quotation and detailed design briefing for an engineering company",
       included_files: included,
-      render_status: productRender ? "GENERATED" : "NOT_GENERATED",
+      render_status: productRender ? "GENERATED" : process.env.REPLICATE_API_TOKEN ? "FAILED_OR_EMPTY" : "NOT_CONFIGURED",
     };
 
     const brief = {
@@ -260,6 +380,7 @@ export async function POST(req: NextRequest) {
     };
 
     const files: Record<string, Uint8Array> = {
+      "00_Cover/for_engineering_company.md": strToU8(cover),
       "package_manifest.json": strToU8(JSON.stringify(manifest, null, 2)),
       "01_Product_Definition/product_brief.json": strToU8(JSON.stringify(brief, null, 2)),
       "01_Product_Definition/requirements_baseline.md": strToU8(requirements),
@@ -269,6 +390,7 @@ export async function POST(req: NextRequest) {
       "02_System_Architecture/proposed_final_design.md": strToU8(proposedFinal),
       "02_System_Architecture/functional_architecture.svg": strToU8(architectureSvgStr),
       "02_System_Architecture/functional_architecture.png": new Uint8Array(architecturePng),
+      "06_Mechanical/mechanical_envelope.md": strToU8(envelope),
       "07_BOM_And_Assembly/candidate_bom.csv": strToU8(bom.join("\n")),
       "09_Testing_And_Validation/engineering_release_checklist.csv": strToU8(checklist),
       "10_Manufacturing_Handover/manufacturing_handoff.md": strToU8(handoff),
@@ -276,7 +398,9 @@ export async function POST(req: NextRequest) {
     };
     if (productRender) {
       files["08_Visualisation/product_concept_render.png"] = productRender.png;
-      files["08_Visualisation/README.md"] = strToU8("Product concept render included. Illustrative only — not dimensionally accurate CAD.");
+      files["08_Visualisation/README.md"] = strToU8(
+        "# Product concept visual\n\nIllustrative industrial-design concept only.\nNot dimensionally accurate CAD. Use with 06_Mechanical/mechanical_envelope.md for prototype discussion.\n"
+      );
     }
 
     const zip = zipSync(files, { level: 6 });
