@@ -27,4 +27,5 @@ jobs:
           python-version: "3.12"
       - run: pip install -r backend/requirements.txt
       - run: python -m compileall -q backend/app
+      - run: python -m unittest discover -s backend/tests -v
       - run: python -c "import sys; sys.path.insert(0, 'backend'); from app.main import app; print(app.title)"
