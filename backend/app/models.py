@@ -21,6 +21,7 @@ class DesignResponse(BaseModel):
     modules: list[FunctionalModule]
     risks: list[str] = Field(default_factory=list)
     validation_status: str = "concept_only"
+    generation_mode: Literal["rule_based_fallback", "openai_structured"] = "rule_based_fallback"
     estimated_complexity: Literal["LOW", "MEDIUM", "HIGH"] = "MEDIUM"
     requirements: list[str] = Field(default_factory=list)
     electrical_design: list[str] = Field(default_factory=list)
