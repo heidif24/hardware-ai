@@ -28,7 +28,7 @@ The frontend still communicates with the worker through one internal HTTP bounda
 - Runs KiCad ERC/DRC and exports Gerber/drill files only when the corresponding real project files are present and the DRC command passes.
 - Detects firmware source but does not execute untrusted Makefiles; board-specific compilation remains gated on a frozen MCU, trusted build definition and SDK.
 - Performs a basic STEP-file header check.
-- Produces a ZIP containing actual supplied/generated files, execution results and an explicit report of missing work.
+- Receives a structured AI engineering plan and stores it with the approved design snapshot.\n- Refuses to treat model-generated READY labels as engineering evidence; the plan API forces native stages to BLOCKED until independently verified source inputs and review evidence are supplied.\n- Produces a ZIP containing actual supplied/generated files, execution results and an explicit report of missing work.
 
 The worker limits submissions to two concurrent jobs and twenty new jobs per 24 hours. The public Vercel bridge does not forward arbitrary uploaded source files. The worker does **not** invent component selections, pin assignments, PCB geometry, enclosure dimensions, firmware or validation evidence. A job with incomplete source files is returned as `BLOCKED`, not falsely marked complete. A passed tool invocation is not engineering sign-off or certification.
 
@@ -64,7 +64,7 @@ The Vercel application proxies these through `/api/v1/engineering/jobs`.
 
 ## AI intelligence integration point
 
-The engineering worker is ready to receive a structured, approved design from the AI layer through `POST /v1/jobs`. The AI layer should produce grounded component identities, requirements and constraints; the worker then creates a generation workspace and executes native tools. Keep AI credentials outside the browser and inject them only into the server-side intelligence service.
+The engineering worker is ready to receive a structured, approved design from the AI layer through `POST /v1/jobs`. The AI plan endpoint (`POST /api/v1/engineering/plan`) converts the approved concept into a structured plan covering electronics, PCB, firmware, mechanical design, interfaces, manufacturing and verification. The plan is stored by the worker. At present, the platform deliberately blocks native generation because the app does not yet ingest a verified component/datasheet/footprint source package or frozen board-specific requirements. The worker then records every missing input instead of guessing. Keep AI credentials outside the browser and inject them only into the server-side intelligence service.
 
 Recommended flow:
 
@@ -76,3 +76,31 @@ Natural-language brief -> AI requirement extraction -> design review -> user app
 ## Operational boundary
 
 This initial worker is an execution and validation foundation. It is not yet the AI engineering agent that creates a complete, electrically correct KiCad design, a dimensionally controlled FreeCAD model or board-specific firmware. Those generators must be added as separate, testable stages with manufacturer-datasheet grounding, requirement traceability and review gates. Never release Gerbers, STEP or binaries as fabrication-ready without qualified engineering review and prototype verification.
+
+
+## Where the production worker URL comes from
+
+The URL is assigned by Fly.io after the worker app is created and deployed. With the app name in `fly.toml`, the expected default URL is:
+
+`https://hardware-foundry-engineering-worker.fly.dev`
+
+If Fly reports that the app name is already taken, choose an available globally unique name, update `app = "..."` in `fly.toml`, and use `https://YOUR-APP-NAME.fly.dev` instead.
+
+From the repository's `worker/` directory:
+
+```bash
+fly auth login
+fly apps create hardware-foundry-engineering-worker
+fly volumes create hardware_foundry_jobs --region ams --size 20
+openssl rand -hex 32
+# Copy the generated value locally; do not commit it.
+fly secrets set WORKER_API_TOKEN="PASTE_THE_GENERATED_VALUE"
+fly deploy
+```
+
+Then add these production environment variables in the Vercel project settings:
+
+- `ENGINEERING_WORKER_URL=https://hardware-foundry-engineering-worker.fly.dev`
+- `ENGINEERING_WORKER_TOKEN` = exactly the same secret value set as `WORKER_API_TOKEN` on Fly.io.
+
+Redeploy the Vercel application after adding the variables. Check worker liveness by opening `https://YOUR-APP-NAME.fly.dev/health`; it should return JSON with `status: ok`. Keep the worker token private.
