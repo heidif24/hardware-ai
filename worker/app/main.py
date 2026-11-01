@@ -139,10 +139,10 @@ def validate_kicad(root: Path) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
     for schematic in root.rglob("*.kicad_sch"):
         report = schematic.with_suffix(".erc.txt")
-        results.append(run_command(["kicad-cli", "sch", "erc", "--output", str(report), "--format", "report", str(schematic)], cwd=root))
+        results.append(run_command(["kicad-cli", "sch", "erc", "--exit-code-violations", "--output", str(report), "--format", "report", str(schematic)], cwd=root))
     for board in root.rglob("*.kicad_pcb"):
         report = board.with_suffix(".drc.txt")
-        drc = run_command(["kicad-cli", "pcb", "drc", "--output", str(report), "--format", "report", str(board)], cwd=root)
+        drc = run_command(["kicad-cli", "pcb", "drc", "--exit-code-violations", "--output", str(report), "--format", "report", str(board)], cwd=root)
         results.append(drc)
         if drc.get("passed"):
             gerber_dir = board.parent / "gerbers"
@@ -278,10 +278,10 @@ def execute_job(path: Path) -> None:
         uploaded = job.get("uploaded_files", [])
         workspace_generation = generate_native_project_scaffold(path / "workspace", job)
         innovation = build_innovation_dossier(path / "workspace", job.get("design", {}), job.get("decision_selections", {}), job.get("global_notes", ""))
+        pcb_generation = generate_pcb(path / "workspace" / "04_PCB", job.get("engineering_plan", {}))
         electronics = validate_kicad(path / "workspace")
         firmware = validate_firmware(path / "workspace")
         mechanical = inspect_mechanical_files(path / "workspace")
-        pcb_generation = generate_pcb(path / "workspace" / "04_PCB", job.get("engineering_plan", {}))
         native_generation = generate_engineering_artifacts(path / "workspace", job.get("engineering_plan", {}))
         generated_files = [str(file.relative_to(path / "workspace")) for file in (path / "workspace").rglob("*") if file.is_file()]
         uploaded = sorted(set(uploaded + generated_files))
