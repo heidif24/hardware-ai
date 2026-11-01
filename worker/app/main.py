@@ -225,6 +225,14 @@ def build_report(job: dict[str, Any], toolchains: dict[str, Any], uploaded: list
         "## Approved design basis",
         "The user approved the product design basis before this job was submitted. This approval is not engineering sign-off or fabrication authorisation.",
         "",
+        "## AI engineering plan and generation gates",
+        "The AI plan is a structured proposal. The worker does not accept a model-generated READY label as proof of engineering evidence.",
+    ]
+    plan = job.get("engineering_plan", {})
+    for stage, gate in (plan.get("generation_gates", {}) if isinstance(plan, dict) else {}).items():
+        lines.append("- **" + str(stage) + ":** " + str(gate.get("status", "BLOCKED")) + " — " + "; ".join(map(str, gate.get("missing_inputs", []))))
+    lines.extend([
+        "",
         "## Uploaded source files",
         *(["- " + name for name in uploaded] or ["- No native engineering source files supplied."]),
         "",
@@ -372,6 +380,10 @@ async def create_job(payload: JobRequest, background: BackgroundTasks, authoriza
     job = {
         "id": job_id,
         "project_name": payload.project_name,
+        "design": payload.design,
+        "engineering_plan": payload.engineering_plan,
+        "decision_selections": payload.decision_selections,
+        "global_notes": payload.global_notes,
         "status": "QUEUED",
         "created_at": utc_now(),
         "design_basis_sha256": basis_hash,
