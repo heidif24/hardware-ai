@@ -73,7 +73,7 @@ def baseline(request: SynthesisRequest):
             "Battery, charging, RF, isolation and enclosure safety depend on final product requirements.",
             "Prototype, EMC, environmental and reliability testing remain outstanding."
         ],
-        "validation_status": "concept_only",
+        "validation_status": "concept_only",\n        "generation_mode": "rule_based_fallback",
         "estimated_complexity": "MEDIUM",
         "requirements": [
             "Confirm intended users, operating environment and installation method.",
@@ -132,7 +132,7 @@ async def synthesize(request: SynthesisRequest) -> DesignResponse:
             timeout=60
         )
         data = json.loads(response.choices[0].message.content or "{}")
-        data["validation_status"] = "concept_only"
+        data["validation_status"] = "concept_only"\n        data["generation_mode"] = "openai_structured"
         return DesignResponse.model_validate(data)
     except Exception:
         return DesignResponse.model_validate(baseline(request))
