@@ -149,11 +149,15 @@ def validate_kicad(root: Path) -> list[dict[str, Any]]:
 
 
 def validate_firmware(root: Path) -> list[dict[str, Any]]:
-    results: list[dict[str, Any]] = []
-    for makefile in root.rglob("Makefile"):
-        if "firmware" in makefile.parts or "05_Firmware" in makefile.parts:
-            results.append(run_command(["make", "-C", str(makefile.parent)], cwd=root))
-    return results
+    sources = [path for path in root.rglob("*") if path.is_file() and path.suffix.lower() in (".c", ".cpp", ".ino")]
+    if not sources:
+        return []
+    return [{
+        "passed": False,
+        "not_run": True,
+        "source_files": [str(path.relative_to(root)) for path in sources[:40]],
+        "detail": "Firmware compilation is not run until the MCU, build flags, trusted build definition and required SDK are frozen. User-supplied Makefiles are never executed by this worker.",
+    }]
 
 
 def inspect_mechanical_files(root: Path) -> list[dict[str, Any]]:
@@ -218,7 +222,7 @@ def build_report(job: dict[str, Any], toolchains: dict[str, Any], uploaded: list
     return "\n".join(lines) + "\n"
 
 
-async def execute_job(path: Path) -> None:
+def execute_job(path: Path) -> None:
     job = read_job(path)
     job["status"] = "RUNNING"
     job["started_at"] = utc_now()
