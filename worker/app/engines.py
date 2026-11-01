@@ -142,6 +142,82 @@ def generate_engineering_artifacts(root: Path, plan: dict[str, Any]) -> dict[str
     root.mkdir(parents=True, exist_ok=True)
     firmware = generate_firmware(root, plan)
     mechanical = generate_mechanical(root, plan)
-    return {"firmware": firmware, "mechanical": mechanical,
+    connector = generate_proprietary_connector(root, plan)
+    return {"firmware": firmware, "mechanical": mechanical, "proprietary_connector": connector,
             "release_state": "READY_FOR_REVIEW" if firmware.get("passed") and mechanical.get("passed") else "ENGINEERING_INCOMPLETE",
             "notice": "Native artefacts are generated only from explicit, provenance-labelled inputs. Tool success is not safety, EMC, environmental, prototype or manufacturing certification."}
+
+
+def generate_proprietary_connector(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
+    """Generate matched keyed male/female concept geometry only from provenance-labelled dimensions."""
+    interface = _dict(plan.get("interface_design"))
+    raw = _dict(interface.get("connector_geometry"))
+    numeric = ("body_length", "body_width", "body_height", "pitch", "contact_diameter", "cavity_depth", "clearance")
+    values = {key: _number(raw, key) for key in numeric}
+    count = raw.get("pin_count")
+    rows = raw.get("rows", 1)
+    missing = [key for key, value in values.items() if value is None]
+    if not isinstance(count, int) or isinstance(count, bool) or not 1 <= count <= 40:
+        missing.append("pin_count (integer 1..40)")
+    if not isinstance(rows, int) or rows not in (1, 2, 3, 4):
+        missing.append("rows (integer 1..4)")
+    if missing:
+        return {"status": "BLOCKED", "passed": False,
+                "missing_inputs": ["interface_design.connector_geometry." + key + " with verified/user-specified provenance" for key in missing]}
+    L, W, H = values["body_length"], values["body_width"], values["body_height"]
+    pitch, diameter = values["pitch"], values["contact_diameter"]
+    depth, clearance = values["cavity_depth"], values["clearance"]
+    if diameter >= pitch or depth >= H or clearance * 2 >= min(L, W) or rows * pitch > W:
+        return {"status": "BLOCKED", "passed": False, "missing_inputs": ["physically consistent connector envelope, contact pitch and cavity parameters"]}
+    out = root / "07_Proprietary_Interfaces"
+    out.mkdir(parents=True, exist_ok=True)
+    macro = out / "generate_mating_connector.FCMacro"
+    macro.write_text("""import FreeCAD as App
+import Part
+from FreeCAD import Vector
+doc = App.newDocument('FoundryProprietaryConnector')
+L={L}; W={W}; H={H}; pitch={pitch}; d={diameter}; depth={depth}; clearance={clearance}
+count={count}; rows={rows}
+cols = (count + rows - 1) // rows
+male = Part.makeBox(L, W, H)
+female = Part.makeBox(L + 2*clearance, W + 2*clearance, H)
+cavity = Part.makeBox(L + clearance, W + clearance, depth + 0.2)
+cavity.translate(Vector(clearance/2, clearance/2, H-depth))
+female = female.cut(cavity)
+for i in range(count):
+    row = i // cols
+    col = i % cols
+    x = (L - (cols-1)*pitch)/2 + col*pitch
+    y = (W - (rows-1)*pitch)/2 + row*pitch
+    pin = Part.makeCylinder(d/2, depth, Vector(x, y, H-depth))
+    male = male.fuse(pin)
+    bore = Part.makeCylinder(d/2 + clearance/2, depth+0.2, Vector(x+clearance/2, y+clearance/2, H-depth))
+    female = female.cut(bore)
+# Polarising rail and mating channel; dimensions remain part of the envelope, not electrical safety evidence.
+rail = Part.makeBox(L*0.45, max(clearance, 0.3), H*0.15)
+rail.translate(Vector(L*0.275, W-max(clearance,0.3), H*0.85))
+male = male.fuse(rail)
+slot = Part.makeBox(L*0.45+clearance, max(clearance*2,0.6), H*0.15+clearance)
+slot.translate(Vector(L*0.275-clearance/2, W+clearance-max(clearance*2,0.6), H*0.85-clearance/2))
+female = female.cut(slot)
+a=doc.addObject('PartDesign::Feature','MalePlug'); a.Shape=male
+b=doc.addObject('PartDesign::Feature','FemaleSocket'); b.Shape=female
+doc.recompute()
+doc.saveAs(r'{fcstd}')
+Part.export([a], r'{male}')
+Part.export([b], r'{female}')
+""".format(L=L, W=W, H=H, pitch=pitch, diameter=diameter, depth=depth, clearance=clearance,
+           count=count, rows=rows, fcstd=str(out / "foundry_connector_pair.FCStd"),
+           male=str(out / "foundry_connector_male.step"), female=str(out / "foundry_connector_female.step")), encoding="utf-8")
+    executable = shutil.which("FreeCADCmd") or shutil.which("freecadcmd")
+    if not executable:
+        return {"status": "SOURCE_GENERATED_TOOL_UNAVAILABLE", "passed": False,
+                "macro": "07_Proprietary_Interfaces/generate_mating_connector.FCMacro",
+                "missing_inputs": ["FreeCADCmd executable in worker image"]}
+    run = _run([executable, str(macro)], out)
+    expected = [out / "foundry_connector_pair.FCStd", out / "foundry_connector_male.step", out / "foundry_connector_female.step"]
+    run.update({"status": "GENERATED" if run["passed"] and all(p.exists() for p in expected) else "FAILED",
+                "native_files": [str(p.relative_to(root)) for p in expected if p.exists()],
+                "note": "Geometric mating concept only. Contact assignments, current/voltage ratings, plating, insulation, retention force, tolerance stack, ingress protection and cycle life require separate engineering evidence and prototype validation."})
+    run["passed"] = bool(run["passed"] and all(p.exists() for p in expected))
+    return run
