@@ -1,11 +1,11 @@
-import csv,io,json,zipfile
+import csv,io,json,zipfile,os
 from fastapi import FastAPI,HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from .models import SynthesisRequest
 from .engine import synthesize
 app=FastAPI(title="Hardware Foundry API",version="0.1.0")
-app.add_middleware(CORSMiddleware,allow_origins=["http://localhost:3000"],allow_credentials=True,allow_methods=["GET","POST"],allow_headers=["*"])
+app.add_middleware(CORSMiddleware,allow_origins=[x.strip() for x in os.getenv("FRONTEND_ORIGINS","http://localhost:3000").split(",") if x.strip()],allow_credentials=True,allow_methods=["GET","POST"],allow_headers=["*"])
 @app.get("/health")
 def health():return {"status":"ok","service":"hardware-foundry-api","mode":"concept_engine"}
 @app.post("/api/v1/designs/synthesize")
