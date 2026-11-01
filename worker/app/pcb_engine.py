@@ -135,9 +135,7 @@ def generate_pcb(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
             footprint.SetValue(str(component.get("value", component["reference"])))
             footprint.SetPosition(pcb.VECTOR2I(pcb.FromMM(_verified_number(component["x_mm"], component["reference"] + ".x_mm", minimum=0)),
                                                pcb.FromMM(_verified_number(component["y_mm"], component["reference"] + ".y_mm", minimum=0))))
-            rotation = component.get("rotation_deg", 0)
-            if isinstance(rotation, dict):
-                rotation = _verified_number(rotation, component["reference"] + ".rotation_deg", minimum=-360, maximum=360)
+            rotation = _verified_number(component.get("rotation_deg"), component["reference"] + ".rotation_deg", minimum=-360, maximum=360)
             if isinstance(rotation, bool) or not isinstance(rotation, (int, float)) or not math.isfinite(float(rotation)):
                 raise ValueError(f"Invalid rotation for {component['reference']}.")
             footprint.SetOrientationDegrees(float(rotation))
