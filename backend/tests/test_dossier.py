@@ -54,6 +54,9 @@ class DossierTests(unittest.TestCase):
             self.assertFalse(manifest["vendor_pricing_or_procurement_data"])
             self.assertIn("Gerber X2", manifest["missing_fabrication_outputs"])
             self.assertIn("NDA", archive.read("README.md").decode("utf-8"))
+            requirements = archive.read("requirements_baseline.md").decode("utf-8")
+            self.assertIn("\n", requirements)
+            self.assertNotIn("\\n", requirements)
 
     def test_invalid_payload_is_rejected(self):
         with self.assertRaises(ValueError):
