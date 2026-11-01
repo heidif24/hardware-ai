@@ -237,7 +237,7 @@ def build_report(job: dict[str, Any], toolchains: dict[str, Any], uploaded: list
         *(["- " + name for name in uploaded] or ["- No native engineering source files supplied."]),
         "",
         "## Toolchain inventory",
-    ]
+    ])
     for name, value in toolchains.items():
         lines.append("- **" + name + ":** " + ("available" if value["available"] else "unavailable") + ((" — " + str(value["version"])) if value.get("version") else ""))
     lines.extend(["", "## Validation execution"])
