@@ -18,6 +18,7 @@ from fastapi import BackgroundTasks, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from .innovation import build_innovation_dossier
+from .engines import generate_engineering_artifacts
 
 APP_VERSION = "0.1.0"
 JOBS_ROOT = Path(os.getenv("JOBS_ROOT", ".data/jobs"))
@@ -251,6 +252,9 @@ def build_report(job: dict[str, Any], toolchains: dict[str, Any], uploaded: list
     lines.extend(["- " + item for item in missing] or ["- No missing source category was detected by this initial worker check."])
     lines.extend([
         "",
+        "## Native generation",
+        "Native firmware and FreeCAD engines run only when board identifiers, application source and provenance-labelled dimensions are supplied. See execution_result.json for per-stage outcomes.",
+        "",
         "## Release boundary",
         "This worker executes available checks against actual supplied source files. It does not invent component identities, electrical ratings, pin maps, CAD dimensions or test evidence. A successful tool invocation is not equivalent to design approval, regulatory certification, prototype validation or factory acceptance.",
         "",
@@ -272,13 +276,15 @@ def execute_job(path: Path) -> None:
         electronics = validate_kicad(path / "workspace")
         firmware = validate_firmware(path / "workspace")
         mechanical = inspect_mechanical_files(path / "workspace")
-        checks = {"Engineering workspace": workspace_generation, "Generative innovation": innovation, "KiCad": electronics, "Firmware": firmware, "Mechanical": mechanical}
+        native_generation = generate_engineering_artifacts(path / "workspace", job.get("engineering_plan", {}))
+        checks = {"Engineering workspace": workspace_generation, "Generative innovation": innovation, "KiCad": electronics, "Firmware": firmware, "Mechanical": mechanical, "Native generation": [native_generation]}
         report = build_report(job, toolchains, uploaded, checks)
         (path / "workspace" / "09_Testing_And_Validation").mkdir(parents=True, exist_ok=True)
         (path / "workspace" / "09_Testing_And_Validation" / "engineering_execution_report.md").write_text(report, encoding="utf-8")
         result = {
             "toolchains": toolchains,
             "checks": checks,
+            "native_generation": native_generation,
             "innovation": innovation,
             "uploaded_files": uploaded,
             "status": "BLOCKED" if "ENGINEERING_WORK_INCOMPLETE" in report else "SUCCEEDED",
