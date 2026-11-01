@@ -1,4 +1,4 @@
-import os,httpx
+import os,httpx,base64
 from typing import Any
 async def search_components(query:str,limit:int=8)->dict[str,Any]:
  results=[];providers={"mouser":bool(os.getenv("MOUSER_API_KEY")),"digikey":bool(os.getenv("DIGIKEY_CLIENT_ID") and os.getenv("DIGIKEY_CLIENT_SECRET")),"lcsc":"catalogue_linkout"}
@@ -21,6 +21,10 @@ async def generate_product_visual(brief:str,design:dict)->bytes:
  if not token:raise RuntimeError("Replicate image-generation credentials have not been configured. Add REPLICATE_API_TOKEN to the backend environment.")
  prompt=("Photorealistic industrial-design product concept render, studio product photography, neutral light grey background, three-quarter front view, premium manufacturable electronics hardware, realistic materials, subtle technical details, no text, no logo, no watermark. Concept render only, not verified CAD. Brief: "+brief+". Architecture: "+str([m.get("name") for m in design.get("modules",[])]))[:3500]
  async with httpx.AsyncClient(timeout=180) as c:
+  if openai_key:
+   r=await c.post("https://api.openai.com/v1/images/generations",headers={"Authorization":f"Bearer {openai_key}"},json={"model":"gpt-image-1","prompt":prompt,"size":"1536x1024","quality":"high","output_format":"png"});r.raise_for_status();encoded=r.json().get("data",[{}])[0].get("b64_json")
+   if encoded:return base64.b64decode(encoded)
+   raise RuntimeError("OpenAI image service returned no image data")
   r=await c.post("https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions",headers={"Authorization":f"Bearer {token}","Prefer":"wait"},json={"input":{"prompt":prompt,"aspect_ratio":"4:3","output_format":"png","num_outputs":1}});r.raise_for_status();data=r.json()
   if data.get("status")!="succeeded":
    pid=data.get("id")
