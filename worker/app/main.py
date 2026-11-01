@@ -249,7 +249,7 @@ def execute_job(path: Path) -> None:
             for file in (path / "workspace").rglob("*"):
                 if file.is_file():
                     bundle.write(file, file.relative_to(path / "workspace").as_posix())
-            bundle.write(path / "execution_result.json", "09_Testing_And_Validation/execution_result.json")
+            bundle.write(path / "design_basis.json", "01_Product_Definition/approved_design_basis.json")\n            bundle.write(path / "execution_result.json", "09_Testing_And_Validation/execution_result.json")
         job["status"] = result["status"]
         job["result"] = result
         job["artifact"] = "engineering_execution_bundle.zip"
@@ -298,6 +298,23 @@ async def create_job(payload: JobRequest, background: BackgroundTasks, authoriza
     unresolved = [item.get("title", item.get("id", "Decision")) for item in decisions if not payload.decision_selections.get(item.get("id"))]
     if unresolved:
         raise HTTPException(status_code=422, detail="Unselected design decisions: " + ", ".join(unresolved))
+    now = datetime.now(timezone.utc).timestamp()
+    active = 0
+    recent = 0
+    for record in JOBS_ROOT.glob("*/job.json"):
+        try:
+            existing = json.loads(record.read_text(encoding="utf-8"))
+            if existing.get("status") in ("QUEUED", "RUNNING"):
+                active += 1
+            created = datetime.fromisoformat(existing.get("created_at", "")).timestamp()
+            if now - created < 86400:
+                recent += 1
+        except Exception:
+            continue
+    if active >= 2:
+        raise HTTPException(status_code=429, detail="The engineering worker is at its two-job concurrency limit. Check an existing job before submitting another.")
+    if recent >= 20:
+        raise HTTPException(status_code=429, detail="The engineering worker has reached its daily job quota. Try again later.")
     job_id = str(uuid.uuid4())
     path = JOBS_ROOT / job_id
     workspace = path / "workspace"
