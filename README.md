@@ -51,7 +51,7 @@ Run `npm install`, copy `.env.example` to `.env.local`, add provider keys as req
 
 ## Engineering integrity and release limits
 
-The generated ZIP includes product brief, architecture JSON and SVG, engineering report, requirements baseline, candidate functional BOM, interface control document, firmware and mechanical plans, verification plan, manufacturing hand-off notes, release checklist and an NDA discussion template.
+The generated ZIP includes product brief, architecture JSON, functional architecture SVG and a rendered `functional_architecture.png` preview, engineering report, requirements baseline, candidate functional BOM, interface control document, firmware and mechanical plans, verification plan, manufacturing hand-off notes, release checklist and an NDA discussion template.
 
 The current system generates concept-level planning artefacts only. It does not generate actual KiCad schematics, verified symbols or footprints, PCB layout source, ERC/DRC reports, Gerber X2, NC drill, IPC-356 netlist, pick-and-place data, assembly drawings, dimensionally accurate STEP enclosure CAD, prototype verification evidence or qualified engineering approval. Those require product-specific engineering, CAD/EDA work, validation and qualified review.
 
