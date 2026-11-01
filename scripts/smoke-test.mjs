@@ -60,7 +60,7 @@ try {
     }),
   });
   assert.equal(dossier.status, 200, "approved dossier endpoint must return HTTP 200");
-  assert.match(dossier.headers.get("content-type") || "", /application\\/zip/, "dossier must be a ZIP");
+  assert.ok((dossier.headers.get("content-type") || "").includes("application/zip"), "dossier must be a ZIP");
 
   const archive = unzipSync(new Uint8Array(await dossier.arrayBuffer()));
   const required = [
