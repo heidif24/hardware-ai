@@ -17,6 +17,7 @@ from typing import Any
 from fastapi import BackgroundTasks, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
+from .innovation import build_innovation_dossier
 
 APP_VERSION = "0.1.0"
 JOBS_ROOT = Path(os.getenv("JOBS_ROOT", ".data/jobs"))
@@ -230,16 +231,18 @@ def execute_job(path: Path) -> None:
     try:
         toolchains = probe_toolchains()
         uploaded = job.get("uploaded_files", [])
+        innovation = build_innovation_dossier(path / "workspace", job.get("design", {}), job.get("decision_selections", {}), job.get("global_notes", ""))
         electronics = validate_kicad(path / "workspace")
         firmware = validate_firmware(path / "workspace")
         mechanical = inspect_mechanical_files(path / "workspace")
-        checks = {"KiCad": electronics, "Firmware": firmware, "Mechanical": mechanical}
+        checks = {"Generative innovation": innovation, "KiCad": electronics, "Firmware": firmware, "Mechanical": mechanical}
         report = build_report(job, toolchains, uploaded, checks)
         (path / "workspace" / "09_Testing_And_Validation").mkdir(parents=True, exist_ok=True)
         (path / "workspace" / "09_Testing_And_Validation" / "engineering_execution_report.md").write_text(report, encoding="utf-8")
         result = {
             "toolchains": toolchains,
             "checks": checks,
+            "innovation": innovation,
             "uploaded_files": uploaded,
             "status": "BLOCKED" if "ENGINEERING_WORK_INCOMPLETE" in report else "SUCCEEDED",
         }
