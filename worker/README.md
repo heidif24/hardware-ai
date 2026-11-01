@@ -2,6 +2,23 @@
 
 This is the separate container service for long-running engineering-tool execution. It is intentionally separate from the Vercel web application: KiCad, FreeCAD and embedded compiler toolchains are not suitable for short-lived serverless functions.
 
+## Self-contained open-source engineering stack
+
+The worker image installs and owns the native engineering executables. The web application does not need separate CAD APIs:
+
+- **KiCad** — schematic/PCB inspection, ERC/DRC and manufacturing exports.
+- **FreeCAD** — parametric mechanical CAD execution and STEP-based workflows.
+- **PlatformIO** — embedded firmware build environment when a target and trusted project definition are generated.
+- **ARM/AVR GCC + CMake/Ninja** — lower-level embedded and portable firmware builds.
+
+For local development, set a private `WORKER_API_TOKEN` and run:
+
+```bash
+WORKER_API_TOKEN="your-private-token" docker compose -f docker-compose.engineering.yml up --build
+```
+
+The frontend still communicates with the worker through one internal HTTP boundary. That boundary is an architectural separation for long-running jobs, not a dependency on a commercial CAD API.
+
 ## What it does now
 
 - Authenticates server-to-server requests with a bearer token.
@@ -44,6 +61,17 @@ The Fly app requires a persistent volume mounted at `/data`. The included `fly.t
 - `GET /v1/jobs/{job_id}/artifact` — download the execution ZIP when the job reaches `BLOCKED` or `SUCCEEDED`.
 
 The Vercel application proxies these through `/api/v1/engineering/jobs`.
+
+## AI intelligence integration point
+
+The engineering worker is ready to receive a structured, approved design from the AI layer through `POST /v1/jobs`. The AI layer should produce grounded component identities, requirements and constraints; the worker then creates a generation workspace and executes native tools. Keep AI credentials outside the browser and inject them only into the server-side intelligence service.
+
+Recommended flow:
+
+```text
+Natural-language brief -> AI requirement extraction -> design review -> user approval
+-> engineering job -> KiCad / FreeCAD / PlatformIO worker -> validation -> ZIP
+```
 
 ## Operational boundary
 
