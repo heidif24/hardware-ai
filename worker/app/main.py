@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 APP_VERSION = "0.1.0"
-JOBS_ROOT = Path(os.getenv("JOBS_ROOT", "/data/jobs"))
+JOBS_ROOT = Path(os.getenv("JOBS_ROOT", ".data/jobs"))
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 MAX_COMMAND_SECONDS = 120
 API_TOKEN = os.getenv("WORKER_API_TOKEN", "")
