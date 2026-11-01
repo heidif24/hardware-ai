@@ -145,7 +145,7 @@ def generate_engineering_artifacts(root: Path, plan: dict[str, Any]) -> dict[str
     mechanical = generate_mechanical(root, plan)
     connector = generate_proprietary_connector(root, plan)
     return {"firmware": firmware, "mechanical": mechanical, "proprietary_connector": connector,
-            "release_state": "READY_FOR_REVIEW" if firmware.get("passed") and mechanical.get("passed") else "ENGINEERING_INCOMPLETE",
+            "release_state": "READY_FOR_REVIEW" if firmware.get("passed") and mechanical.get("passed") and connector.get("passed") else "ENGINEERING_INCOMPLETE",
             "notice": "Native artefacts are generated only from explicit, provenance-labelled inputs. Tool success is not safety, EMC, environmental, prototype or manufacturing certification."}
 
 
