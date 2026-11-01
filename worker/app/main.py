@@ -19,6 +19,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from .innovation import build_innovation_dossier
 from .engines import generate_engineering_artifacts
+from .pcb_engine import generate_pcb
 
 APP_VERSION = "0.1.0"
 JOBS_ROOT = Path(os.getenv("JOBS_ROOT", ".data/jobs"))
@@ -100,6 +101,7 @@ def probe_toolchains() -> dict[str, Any]:
         "avr_gcc": ["avr-gcc", "--version"],
         "cmake": ["cmake", "--version"],
         "platformio": ["platformio", "--version"],
+        "pcbnew_python": ["python3", "-c", "import pcbnew; print(pcbnew.GetBuildVersion())"],
     }
     inventory: dict[str, Any] = {}
     for name, command in probes.items():
@@ -149,6 +151,9 @@ def validate_kicad(root: Path) -> list[dict[str, Any]]:
             drill_dir.mkdir(exist_ok=True)
             results.append(run_command(["kicad-cli", "pcb", "export", "gerbers", "--output", str(gerber_dir) + "/", str(board)], cwd=root))
             results.append(run_command(["kicad-cli", "pcb", "export", "drill", "--output", str(drill_dir) + "/", str(board)], cwd=root))
+            results.append(run_command(["kicad-cli", "pcb", "export", "pos", "--output", str(board.parent / (board.stem + "-positions.csv")), str(board)], cwd=root))
+            results.append(run_command(["kicad-cli", "pcb", "export", "ipc", "--output", str(board.parent / (board.stem + "-ipc356.net")), str(board)], cwd=root))
+            results.append(run_command(["kicad-cli", "pcb", "export", "step", "--output", str(board.parent / (board.stem + ".step")), str(board)], cwd=root))
     return results
 
 
@@ -276,10 +281,11 @@ def execute_job(path: Path) -> None:
         electronics = validate_kicad(path / "workspace")
         firmware = validate_firmware(path / "workspace")
         mechanical = inspect_mechanical_files(path / "workspace")
+        pcb_generation = generate_pcb(path / "workspace" / "04_PCB", job.get("engineering_plan", {}))
         native_generation = generate_engineering_artifacts(path / "workspace", job.get("engineering_plan", {}))
         generated_files = [str(file.relative_to(path / "workspace")) for file in (path / "workspace").rglob("*") if file.is_file()]
         uploaded = sorted(set(uploaded + generated_files))
-        checks = {"Engineering workspace": workspace_generation, "Generative innovation": innovation, "KiCad": electronics, "Firmware": firmware, "Mechanical": mechanical, "Native generation": [native_generation]}
+        checks = {"Engineering workspace": workspace_generation, "Generative innovation": innovation, "KiCad": electronics, "Firmware": firmware, "Mechanical": mechanical, "Native PCB generation": [pcb_generation], "Native generation": [native_generation]}
         report = build_report(job, toolchains, uploaded, checks)
         (path / "workspace" / "09_Testing_And_Validation").mkdir(parents=True, exist_ok=True)
         (path / "workspace" / "09_Testing_And_Validation" / "engineering_execution_report.md").write_text(report, encoding="utf-8")
