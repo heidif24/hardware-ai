@@ -6,7 +6,7 @@ This is the separate container service for long-running engineering-tool executi
 
 The worker image installs and owns the native engineering executables. The web application does not need separate CAD APIs:
 
-- **KiCad** — schematic/PCB inspection, ERC/DRC and manufacturing exports.
+- **KiCad** — editable PCB generation from an explicit, provenance-labelled layout contract; schematic/PCB inspection, ERC/DRC and manufacturing exports. The native PCB executor loads exact footprints from installed/supplied KiCad libraries, applies explicit pad-to-net maps, placements, board outline and user/sourced routed segments, writes a real `.kicad_pcb`, and requires DRC before fabrication exports. It is a deterministic layout executor, not an autorouter or schematic synthesiser.
 - **FreeCAD** — parametric mechanical CAD execution and STEP-based workflows.
 - **PlatformIO** — embedded firmware build environment when a target and trusted project definition are generated.
 - **ARM/AVR GCC + CMake/Ninja** — lower-level embedded and portable firmware builds.
@@ -25,12 +25,12 @@ The frontend still communicates with the worker through one internal HTTP bounda
 - Stores approved design-basis snapshots and job state on a persistent volume.
 - Probes the installed KiCad, FreeCAD, ARM and AVR toolchains.
 - Accepts native engineering source files as base64-encoded job inputs (50 MB total limit).
-- Runs KiCad ERC/DRC and exports Gerber/drill files only when the corresponding real project files are present and the DRC command passes.
+- Generates editable `.kicad_pcb` files from a complete, provenance-labelled layout contract; runs KiCad ERC/DRC with violation exit codes and exports Gerber, drill, position, IPC-D-356 and STEP outputs after DRC passes.
 - Detects firmware source but does not execute untrusted Makefiles; board-specific compilation remains gated on a frozen MCU, trusted build definition and SDK.
 - Performs a basic STEP-file header check.
 - Receives a structured AI engineering plan and stores it with the approved design snapshot.\n- Refuses to treat model-generated READY labels as engineering evidence; the plan API forces native stages to BLOCKED until independently verified source inputs and review evidence are supplied.\n- Produces a ZIP containing actual supplied/generated files, execution results and an explicit report of missing work.
 
-The worker limits submissions to two concurrent jobs and twenty new jobs per 24 hours. The public Vercel bridge does not forward arbitrary uploaded source files. The worker does **not** invent component selections, pin assignments, PCB geometry, enclosure dimensions, firmware or validation evidence. A job with incomplete source files is returned as `BLOCKED`, not falsely marked complete. A passed tool invocation is not engineering sign-off or certification.
+The worker limits submissions to two concurrent jobs and twenty new jobs per 24 hours. The public Vercel bridge forwards approved source files through the bounded upload payload. The worker does **not** invent component selections, pin assignments, PCB geometry, enclosure dimensions, firmware or validation evidence. A job with incomplete source files is returned as `BLOCKED`, not falsely marked complete. A passed tool invocation is not engineering sign-off or certification.
 
 ## Deploy on Fly.io
 
@@ -64,7 +64,7 @@ The Vercel application proxies these through `/api/v1/engineering/jobs`.
 
 ## AI intelligence integration point
 
-The engineering worker is ready to receive a structured, approved design from the AI layer through `POST /v1/jobs`. The AI plan endpoint (`POST /api/v1/engineering/plan`) converts the approved concept into a structured plan covering electronics, PCB, firmware, mechanical design, interfaces, manufacturing and verification. The plan is stored by the worker. At present, the platform deliberately blocks native generation because the app does not yet ingest a verified component/datasheet/footprint source package or frozen board-specific requirements. The worker then records every missing input instead of guessing. Keep AI credentials outside the browser and inject them only into the server-side intelligence service.
+The engineering worker is ready to receive a structured, approved design from the AI layer through `POST /v1/jobs`. The AI plan endpoint (`POST /api/v1/engineering/plan`) converts the approved concept into a structured plan covering electronics, PCB, firmware, mechanical design, interfaces, manufacturing and verification. The plan is stored by the worker. Native PCB generation now exists as a deterministic KiCad board-construction stage, but it deliberately blocks unless a verified component/datasheet/footprint source package, explicit pad-to-net mapping, frozen placement, stackup and routed track contract are supplied. It does not synthesise the schematic or auto-route copper. The worker then records every missing input instead of guessing. Keep AI credentials outside the browser and inject them only into the server-side intelligence service.
 
 Recommended flow:
 
@@ -75,7 +75,7 @@ Natural-language brief -> AI requirement extraction -> design review -> user app
 
 ## Operational boundary
 
-This initial worker is an execution and validation foundation. It is not yet the AI engineering agent that creates a complete, electrically correct KiCad design, a dimensionally controlled FreeCAD model or board-specific firmware. Those generators must be added as separate, testable stages with manufacturer-datasheet grounding, requirement traceability and review gates. Never release Gerbers, STEP or binaries as fabrication-ready without qualified engineering review and prototype verification.
+This initial worker is an execution and validation foundation. It is not yet a complete autonomous electronics design agent: the PCB executor requires an engineer-specified routed layout and verified inputs, and the platform still needs schematic synthesis, safe autorouting, electrical analysis, hardware-in-the-loop tests and qualified review. Those generators must be added as separate, testable stages with manufacturer-datasheet grounding, requirement traceability and review gates. Never release Gerbers, STEP or binaries as fabrication-ready without qualified engineering review and prototype verification.
 
 
 ## Where the production worker URL comes from
