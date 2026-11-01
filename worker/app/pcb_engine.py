@@ -36,7 +36,7 @@ def _pcbnew():
 
 def _safe_footprint_library(raw: str, root: Path) -> Path:
     candidate = Path(raw)
-    allowed_roots = [Path("/usr/share/kicad/footprints").resolve(), (root / "00_Engineering_Sources").resolve()]
+    allowed_roots = [Path("/usr/share/kicad/footprints").resolve(), (root.parent / "00_Engineering_Sources").resolve()]
     resolved = (root.parent / candidate).resolve() if not candidate.is_absolute() else candidate.resolve()
     if not any(resolved == base or base in resolved.parents for base in allowed_roots):
         raise ValueError("Footprint library must be an installed KiCad library or a supplied source under 00_Engineering_Sources.")
