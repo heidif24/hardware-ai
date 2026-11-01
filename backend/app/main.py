@@ -1,4 +1,4 @@
-import csv,io,json,zipfile,os
+import csv,io,json,zipfile,os\nfrom xml.sax.saxutils import escape as xml_escape
 from fastapi import FastAPI,HTTPException,Depends,Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse,Response
@@ -66,7 +66,7 @@ async def production_bundle(payload:dict):
   for m in design.get("modules",[]):
    for p in m.get("parts",[]):w.writerow([m.get("name"),m.get("purpose"),p,"UNVERIFIED_CANDIDATE"])
   z.writestr("candidate_bom.csv",out.getvalue())
-  svg=["<svg xmlns='http://www.w3.org/2000/svg' width='1000' height='"+str(190+len(design.get('modules',[]))*116)+"' viewBox='0 0 1000 "+str(190+len(design.get('modules',[]))*116)+"'>","<rect width='100%' height='100%' fill='#090f10'/>","<text x='70' y='55' fill='#b7f36b' font-family='Arial' font-size='13'>HARDWARE FOUNDRY / FUNCTIONAL ARCHITECTURE</text>","<text x='70' y='105' fill='white' font-family='Arial' font-size='28'>"+str(design.get('product_name','Product'))+"</text>"]
+  svg=["<svg xmlns='http://www.w3.org/2000/svg' width='1000' height='"+str(190+len(design.get('modules',[]))*116)+"' viewBox='0 0 1000 "+str(190+len(design.get('modules',[]))*116)+"'>","<rect width='100%' height='100%' fill='#090f10'/>","<text x='70' y='55' fill='#b7f36b' font-family='Arial' font-size='13'>HARDWARE FOUNDRY / FUNCTIONAL ARCHITECTURE</text>","<text x='70' y='105' fill='white' font-family='Arial' font-size='28'>"+xml_escape(str(design.get('product_name','Product')))+"</text>"]
   for i,m in enumerate(design.get("modules",[])):
    y=150+i*116;name=str(m.get("name","Module")).replace("&","&amp;").replace("<","&lt;");purpose=str(m.get("purpose","")).replace("&","&amp;").replace("<","&lt;")
    svg.append("<rect x='70' y='"+str(y)+"' width='860' height='86' rx='14' fill='#111719' stroke='#52634a'/>");svg.append("<text x='100' y='"+str(y+32)+"' fill='#b7f36b' font-family='Arial' font-size='20'>"+name+"</text>");svg.append("<text x='100' y='"+str(y+59)+"' fill='#d6dfd8' font-family='Arial' font-size='14'>"+purpose[:105]+"</text>")
