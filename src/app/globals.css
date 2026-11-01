@@ -43,3 +43,37 @@
 .integration-notes{margin:10px 0 0;padding-left:18px;color:#88978d;font-size:10px;line-height:1.6}
 @media(max-width:900px){.integration-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.supplier-search{align-items:stretch;flex-direction:column}.supplier-search-controls{min-width:0;width:100%}}
 @media(max-width:560px){.integrations-panel{padding:18px}.integration-heading{flex-direction:column}.integration-grid{grid-template-columns:1fr}.supplier-search-controls{flex-direction:column}.supplier-search-controls button{justify-content:center;padding:12px}.supplier-result{flex-direction:column}.supplier-links{flex-direction:row}}
+
+/* Interactive engineering decision review */
+.decision-review{display:grid;gap:14px}
+.decision-intro{padding:4px 0 10px}
+.decision-intro h3{font:600 20px 'Space Grotesk';margin:9px 0}
+.decision-intro p,.decision-card-head p,.decision-reason p,.freeze-panel p{font-size:11px;line-height:1.7;color:var(--muted);margin:0}
+.decision-card{border:1px solid #34413e;border-radius:13px;background:#0d1414;padding:16px}
+.decision-card-head{display:flex;align-items:flex-start;gap:11px}
+.decision-number{font:11px 'DM Mono';color:var(--lime);padding-top:3px}
+.decision-card-head>div{flex:1;min-width:0}
+.decision-card-head h4{font:600 14px 'Space Grotesk';margin:0 0 5px}
+.recommended-label{font:8px 'DM Mono';letter-spacing:.08em;color:var(--lime);border:1px solid #526a3e;border-radius:20px;padding:5px 7px;white-space:nowrap}
+.decision-reason{margin:13px 0;padding:11px 12px;border-left:2px solid var(--lime);background:#141d18}
+.decision-reason strong{font-size:10px;color:#dce8dc}
+.decision-reason p{margin-top:4px}
+.decision-options{display:grid;gap:7px}
+.decision-option{display:flex;gap:10px;padding:11px;border:1px solid #303c39;border-radius:9px;cursor:pointer;background:#101818}
+.decision-option.selected{border-color:#90b85d;background:#172219}
+.decision-option input{accent-color:#c1f27a;margin:3px 0 0;flex:none}
+.decision-option-copy{display:grid;gap:5px;min-width:0}
+.decision-option-copy strong{font-size:11px;color:#e5eee7}
+.decision-option-copy small{font-size:10px;line-height:1.55;color:#9eaca4}
+.decision-option-copy b{color:#c4d2c7}
+.selected-choice{font-size:10px;color:#aab8af;margin:10px 0}
+.selected-choice strong{color:var(--lime)}
+.decision-note-label,.global-clarification label{display:block;font-size:10px;font-weight:700;color:#dce5de;margin:13px 0 7px}
+.decision-card textarea,.global-clarification textarea{width:100%;border:1px solid #344243;background:#080e0f;border-radius:8px;color:var(--text);padding:10px;font-size:11px;line-height:1.6;resize:vertical}
+.global-clarification{margin:18px 0}
+.freeze-panel{display:flex;align-items:center;justify-content:space-between;gap:14px;border:1px solid #3d4b40;border-radius:11px;padding:14px;background:#101915}
+.freeze-panel strong{font:600 13px 'Space Grotesk'}
+.freeze-panel p{max-width:390px;margin-top:5px}
+.freeze-confirmation{display:flex!important;align-items:center;color:var(--lime)!important;gap:7px}
+.export-gate{font:8px 'DM Mono';letter-spacing:.08em;color:#d8c69e;text-align:center}
+@media(max-width:600px){.decision-card{padding:12px}.decision-card-head{flex-wrap:wrap}.recommended-label{margin-left:26px}.freeze-panel{align-items:stretch;flex-direction:column}.freeze-panel button{width:100%}}
