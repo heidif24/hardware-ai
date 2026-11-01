@@ -26,6 +26,12 @@ Add these in Project → Settings → Environment Variables. Keep them server-si
 
 At least one provider key is needed for AI-assisted generation. It is recommended to configure both Gemini and Groq, and optionally OpenAI as a third fallback. Redeploy after changing environment variables.
 
+## Photorealistic product concept rendering
+
+The full dossier export can generate a product-specific photorealistic 3D concept image using Replicate's official `black-forest-labs/flux-1.1-pro` model. Configure `REPLICATE_API_TOKEN` in Vercel Project → Settings → Environment Variables. Optionally set `REPLICATE_IMAGE_MODEL` to another Replicate official model in `owner/model` format. The default model is metered per generated image; check the provider's current pricing before enabling it. The export includes `product_concept_render.png` only when a real render has completed. It does not substitute the architecture diagram or a placeholder. Without the token, the full-render export returns an actionable configuration error.
+
+The render is a visual concept, not dimensionally accurate CAD, a validated enclosure, a verified circuit, or manufacturing evidence. The separate `functional_architecture.png` is a raster diagram preview.
+
 ## Product workflow
 
 1. Enter a product brief and known engineering constraints.
@@ -51,7 +57,7 @@ Run `npm install`, copy `.env.example` to `.env.local`, add provider keys as req
 
 ## Engineering integrity and release limits
 
-The generated ZIP includes product brief, architecture JSON, functional architecture SVG and a rendered `functional_architecture.png` preview, engineering report, requirements baseline, candidate functional BOM, interface control document, firmware and mechanical plans, verification plan, manufacturing hand-off notes, release checklist and an NDA discussion template.
+The generated ZIP includes product brief, architecture JSON, functional architecture SVG and a rendered `functional_architecture.png` preview, and (when Replicate is configured) a photorealistic `product_concept_render.png`, engineering report, requirements baseline, candidate functional BOM, interface control document, firmware and mechanical plans, verification plan, manufacturing hand-off notes, release checklist and an NDA discussion template.
 
 The current system generates concept-level planning artefacts only. It does not generate actual KiCad schematics, verified symbols or footprints, PCB layout source, ERC/DRC reports, Gerber X2, NC drill, IPC-356 netlist, pick-and-place data, assembly drawings, dimensionally accurate STEP enclosure CAD, prototype verification evidence or qualified engineering approval. Those require product-specific engineering, CAD/EDA work, validation and qualified review.
 
