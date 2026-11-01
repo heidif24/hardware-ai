@@ -37,7 +37,7 @@ try {
   });
   assert.equal(synthesis.status, 200, "synthesis endpoint must return HTTP 200");
   const design = await synthesis.json();
-  assert.ok(Array.isArray(design.modules) && design.modules.length > 0, "synthesis must return functional modules");
+  assert.ok(Array.isArray(design.modules) && design.modules.length > 0, "synthesis must return functional modules");\n  assert.ok(Array.isArray(design.decision_points) && design.decision_points.length >= 4, "synthesis must return engineering decision points");
 
   const dossier = await fetch(`${base}/api/v1/designs/dossier`, {
     method: "POST",
@@ -60,14 +60,14 @@ try {
   ];
   for (const name of required) assert.ok(archive[name], `ZIP must contain ${name}`);
 
-  const png = archive["functional_architecture.png"];
+  const png = archive["02_System_Architecture/functional_architecture.png"];
   assert.deepEqual(Array.from(png.slice(0, 8)), [137, 80, 78, 71, 13, 10, 26, 10], "architecture preview must be a valid PNG");
   const width = new DataView(png.buffer, png.byteOffset, png.byteLength).getUint32(16);
   const height = new DataView(png.buffer, png.byteOffset, png.byteLength).getUint32(20);
   assert.ok(width >= 800 && height >= 300, "architecture PNG must have useful dimensions");
 
   const manifest = JSON.parse(new TextDecoder().decode(archive["package_manifest.json"]));
-  assert.ok(manifest.included_files.includes("functional_architecture.png"), "manifest must list the architecture PNG");
+  assert.ok(manifest.included_files.includes("02_System_Architecture/functional_architecture.png"), "manifest must list the architecture PNG");
   assert.ok(manifest.missing_visual_assets.some((asset) => asset.includes("Photorealistic product concept PNG")), "manifest must explicitly disclose an unconfigured product render");
   console.log(`Smoke test passed: synthesis -> dossier ZIP -> ${width}x${height} PNG; ${Object.keys(archive).length} files.`);
 } finally {
