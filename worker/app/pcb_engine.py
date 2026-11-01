@@ -88,10 +88,10 @@ def generate_pcb(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
             seen_refs.add(ref)
             for key in ("x_mm", "y_mm", "rotation_deg"):
                 val = component.get(key)
-                if isinstance(val, dict):
+                if key == "rotation_deg":
                     _verified_number(val, f"component {ref}.{key}", minimum=-360, maximum=360)
-                elif key != "rotation_deg":
-                    raise ValueError(f"component {ref}.{key} must carry provenance.")
+                else:
+                    _verified_number(val, f"component {ref}.{key}", minimum=0, maximum=10000)
             if not isinstance(component.get("footprint"), str) or ":" not in component["footprint"]:
                 raise ValueError(f"Component {ref} requires an exact KiCad library:footprint identifier.")
             pads = component.get("pads")
@@ -105,8 +105,9 @@ def generate_pcb(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
                 raise ValueError(f"Track {index} must reference a declared net.")
             if track.get("layer") not in ("F.Cu", "B.Cu"):
                 raise ValueError(f"Track {index} layer must be F.Cu or B.Cu.")
-            for key in ("start_x_mm", "start_y_mm", "end_x_mm", "end_y_mm", "width_mm"):
-                _verified_number(track.get(key), f"track[{index}].{key}")
+            for key in ("start_x_mm", "start_y_mm", "end_x_mm", "end_y_mm"):
+                _verified_number(track.get(key), f"track[{index}].{key}", minimum=0, maximum=10000)
+            _verified_number(track.get("width_mm"), f"track[{index}].width_mm")
             if track["width_mm"]["value"] > 2:
                 raise ValueError(f"Track {index} width exceeds the safe generator limit; review the design contract.")
         libraries = spec.get("footprint_libraries")
@@ -117,6 +118,7 @@ def generate_pcb(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
         board = pcb.BOARD()
         board.SetFileName(str(root / "foundry_generated.kicad_pcb"))
         board.GetDesignSettings().SetBoardThickness(pcb.FromMM(thickness))
+        board.SetCopperLayerCount(copper)
         net_objects = {}
         for name in sorted(net_names):
             net = pcb.NETINFO_ITEM(board, name)
