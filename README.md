@@ -1,75 +1,52 @@
 # Hardware Foundry
 
-AI-assisted hardware product engineering workspace. The platform takes a product brief through functional architecture and a structured engineering dossier, then stops at a confidential, vendor-neutral download. The user independently approaches manufacturers and controls disclosure.
+Hardware Foundry is a Vercel-hosted product engineering workspace. It turns a product brief into a first-pass functional architecture and a downloadable, vendor-neutral engineering dossier. The user controls manufacturer contact and disclosure.
 
 ## Product workflow
 
-1. Submit a detailed product brief and engineering constraints.
-2. Generate a first-pass functional architecture and product requirements baseline.
-3. Generate electrical design planning, interface control, firmware planning, mechanical design requirements and a verification plan.
-4. Generate a product concept render when an image-generation API key is configured.
-5. Save projects to the private account vault.
-6. Export a vendor-neutral ZIP engineering dossier, including an NDA discussion template and an engineering release checklist.
-7. Share the dossier with a manufacturer only after an NDA has been agreed and signed.
+1. Enter a product brief and known engineering constraints.
+2. Generate a first-pass functional architecture.
+3. Review functional modules, interfaces, assumptions and risks.
+4. Download the design JSON or a complete engineering dossier ZIP.
+5. Independently approach manufacturers. Negotiate and obtain a signed NDA before sharing confidential design information.
 
-## What the platform deliberately does not do
+## Deliberately out of scope
 
-- No supplier discovery, supplier pricing, procurement or component ordering.
-- No factory quotation or order submission.
-- No automatic disclosure to manufacturers.
-- No claim that a concept is a validated circuit or a fabrication-ready product.
+- Supplier discovery, supplier pricing, quotes or procurement.
+- Component ordering or factory order submission.
+- Automatic manufacturer contact, file sharing or NDA signature verification.
+- Claims that a concept is a validated circuit or fabrication-ready product.
 
-## Engineering integrity
+## Vercel-only architecture
 
-A generated dossier contains the product brief, architecture JSON, requirements baseline, engineering design report, candidate functional BOM, interface control document, firmware plan, mechanical design brief, verification plan, architecture SVG, manufacturing hand-off notes, NDA template and engineering release checklist.
+- Frontend: Next.js App Router, TypeScript and Tailwind CSS.
+- Server routes: Next.js Route Handlers running as Vercel Node.js Functions.
+- AI: Optional OpenAI API call from the server-side synthesis route. A deterministic baseline architecture is returned when no API key is configured or the provider is unavailable.
+- Dossier export: ZIP archive generated in the Vercel function using fflate.
+- Persistence: No external database is required by the current single-session workflow. Account registration, login and cloud project storage are intentionally not exposed until a durable database and secure session design are provisioned.
 
-The current synthesis stage is concept-level. It does **not** generate actual KiCad schematics, verified component footprints, PCB layout, Gerber X2, NC drill, IPC-356 netlist, centroid / pick-and-place, assembly drawings or dimensionally accurate STEP enclosure files. Those require product-specific circuit and mechanical engineering, EDA capture, ERC/DRC, and qualified engineer review. The export manifest identifies those missing fabrication assets explicitly. Never represent the concept dossier as an approved manufacturing release.
+There is no Render service, FastAPI backend, external backend URL or Render blueprint in this deployment.
 
-## Architecture
+## Deploy
 
-- Frontend: Next.js 15 App Router, TypeScript and TailwindCSS on Vercel.
-- Backend: FastAPI on Render.
-- Persistence: PostgreSQL with SQLAlchemy; SQLite fallback for local development.
-- Authentication: Argon2 password hashing and JWT sessions.
-- AI: OpenAI structured engineering planning and GPT Image generation; Replicate image fallback.
-- Exports: vendor-neutral ZIP dossier generated server-side.
+1. Connect heidif24/hardware-ai to the Vercel project.
+2. Set the root directory to the repository root.
+3. Use the Next.js framework preset and Node.js 20 or later.
+4. Optionally add OPENAI_API_KEY as a server-side Vercel environment variable. Optionally set OPENAI_MODEL (default: gpt-4.1-mini).
+5. Deploy from main.
 
-## Deployment
-
-### Backend on Render
-
-1. Open Render and create a new Blueprint from this repository.
-2. Render reads `render.yaml`, provisions the FastAPI service and PostgreSQL database.
-3. Set `OPENAI_API_KEY` on the backend when ready. This enables AI-assisted engineering synthesis and OpenAI product concept renders.
-4. Optionally set `REPLICATE_API_TOKEN` as an image-generation fallback.
-5. Confirm `FRONTEND_ORIGINS` contains the exact Vercel production domain.
-6. Verify the backend health endpoint at `https://YOUR-RENDER-SERVICE/health`.
-
-### Frontend on Vercel
-
-1. Add `BACKEND_API_URL` as a server-side Production environment variable, set to the Render service base URL (for example `https://hardware-foundry-api.onrender.com`, with no trailing path).
-2. Redeploy the Vercel project.
-3. Test synthesis, project registration/login, project saving, visual generation (after adding an image key), and engineering dossier ZIP export.
-
-Never expose provider credentials through `NEXT_PUBLIC_*` variables. Never paste API keys into source control or chat.
+The app works without an OpenAI key using deterministic baseline synthesis. Never expose provider credentials through NEXT_PUBLIC variables or commit secrets.
 
 ## Local development
 
-Frontend:
-```bash
-npm install
-npm run dev
-```
+Run npm install, then npm run dev. Open http://localhost:3000.
 
-Backend:
-```bash
-cd backend
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-```
+## Engineering integrity and release limits
 
-Set `BACKEND_API_URL=http://localhost:8000` for the Next.js server. For local SQLite, no database variable is required.
+The generated ZIP includes the product brief, architecture JSON, engineering report, requirements baseline, candidate functional BOM, architecture SVG, interface control document, firmware plan, mechanical design brief, verification plan, manufacturing hand-off notes, engineering release checklist and an NDA discussion template.
 
-## Release gate
+The current system generates concept-level planning artefacts only. It does not generate actual KiCad schematics, verified symbols or footprints, PCB layout source, ERC/DRC reports, Gerber X2, NC drill, IPC-356 netlist, pick-and-place data, assembly drawings, dimensionally accurate STEP enclosure CAD, prototype verification evidence or qualified engineering approval.
 
-A successful web deployment is not the same as a completed hardware engineering release. A specific product is ready for manufacturer fabrication only after its electrical and mechanical CAD files exist, ERC/DRC and relevant validation have been completed, and a qualified engineer has approved the revision-controlled package.
+Those assets require product-specific electrical and mechanical engineering, EDA/CAD work, validation and qualified review. The package manifest and checklist explicitly identify these gaps. Never represent a generated concept dossier as an approved fabrication release.
+
+The NDA file is a discussion template, not legal advice and not proof of an executed agreement. The user must arrange appropriate legal review and obtain signatures before confidential disclosure.
