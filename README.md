@@ -62,6 +62,10 @@ JLCPCB ordering and parts adapters, KiCad schematic/PCB generation, ERC/DRC, Ger
 - Automatic manufacturer contact, file sharing or NDA signature verification.
 - Claims that a concept is a validated circuit or fabrication-ready product.
 
+## Project persistence and operational limits
+
+The current app automatically saves the latest brief and generated architecture in the browser's local storage on that device and browser. It does not yet provide user accounts, cloud project storage, cross-device synchronisation, team workspaces or a project database. Supplier search has a basic per-instance request throttle; before broad public launch, replace this with a shared rate limiter and abuse protection.
+
 ## Vercel-only architecture
 
 Next.js App Router and Node.js Route Handlers run as Vercel Functions. AI provider requests are made directly from the server using HTTPS; no provider SDK or external backend service is required. ZIP dossiers are generated in the Vercel function using fflate. The current workflow does not require an external database or Render service.
