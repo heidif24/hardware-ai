@@ -1,5 +1,5 @@
 import csv,io,json,zipfile,os
-from fastapi import FastAPI,HTTPException,Depends
+from fastapi import FastAPI,HTTPException,Depends,Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse,Response
 from pydantic import BaseModel,EmailStr,Field
@@ -46,7 +46,7 @@ def delete_project(project_id:int,db:Session=Depends(get_db),user:User=Depends(c
  if not p:raise HTTPException(404,"Project not found")
  db.delete(p);db.commit();return {"deleted":True}
 @app.get("/api/v1/components/search")
-async def components(q:str=Field(min_length=2),limit:int=8):
+async def components(q:str=Query(min_length=2,max_length=120),limit:int=8):
  if len(q)>120:raise HTTPException(422,"Search query is too long")
  return await search_components(q,max(1,min(limit,20)))
 @app.post("/api/v1/visuals/render")
