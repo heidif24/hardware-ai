@@ -43,17 +43,20 @@ def generate_firmware(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
     target = _dict(spec.get("target"))
     board = target.get("platformio_board")
     framework = target.get("framework", "arduino")
+    platform = spec.get("platform")
     if not isinstance(board, str) or not SAFE_BOARD.fullmatch(board):
         return {"status": "BLOCKED", "passed": False, "missing_inputs": ["firmware_design.target.platformio_board: verified PlatformIO board identifier"]}
     if framework not in ("arduino", "espidf", "zephyr"):
         return {"status": "BLOCKED", "passed": False, "missing_inputs": ["supported, verified firmware framework (arduino, espidf, or zephyr)"]}
+    if not isinstance(platform, str) or not SAFE_BOARD.fullmatch(platform):
+        return {"status": "BLOCKED", "passed": False, "missing_inputs": ["firmware_design.platform: verified PlatformIO platform identifier"]}
     source = spec.get("application_source")
-    if not isinstance(source, str) or not source.strip():
+    if not isinstance(source, str) or not source.strip() or len(source) > 100000:
         return {"status": "BLOCKED", "passed": False, "missing_inputs": ["reviewed board-specific application_source; generated firmware cannot infer product behaviour safely"]}
     firmware = root / "05_Firmware"
     (firmware / "src").mkdir(parents=True, exist_ok=True)
     (firmware / "platformio.ini").write_text(
-        "[env:foundry]\nplatform = " + str(spec.get("platform", "espressif32")) +
+        "[env:foundry]\nplatform = " + platform +
         "\nboard = " + board + "\nframework = " + framework +
         "\nmonitor_speed = 115200\n", encoding="utf-8")
     (firmware / "src" / "main.cpp").write_text(source, encoding="utf-8")
@@ -82,11 +85,9 @@ outer = Part.makeBox(L, W, H)
 inner = Part.makeBox(L-2*wall, W-2*wall, H-floor)
 inner.translate(Vector(wall, wall, floor))
 body = outer.cut(inner)
-try:
-    vertical = [e for e in body.Edges if abs((e.Vertexes[-1].Point-e.Vertexes[0].Point).z) > H*0.9]
+vertical = [e for e in body.Edges if abs((e.Vertexes[-1].Point-e.Vertexes[0].Point).z) > H*0.9]
+if corner > 0:
     body = body.makeFillet(corner, vertical)
-except Exception:
-    pass
 obj = doc.addObject('PartDesign::Feature', 'Enclosure')
 obj.Label = 'Parametric enclosure - verify fit before manufacture'
 obj.Shape = body
