@@ -67,3 +67,16 @@ The generated ZIP includes product brief, architecture JSON, functional architec
 The application currently generates concept-level planning artefacts and a provisional user-approved design basis. The separate worker foundation can probe its installed toolchains and execute checks on actual supplied KiCad/STEP files, but the public Vercel bridge does not yet provide native-file upload. The system does not yet generate actual KiCad schematics, verified symbols or footprints, PCB layout source, Gerber X2, NC drill, IPC-356 netlist, pick-and-place data, assembly drawings, dimensionally accurate STEP enclosure CAD, board-specific compiled firmware, prototype verification evidence or qualified engineering approval. Those require the next product-specific AI engineering and CAD/EDA generation stages, grounded component data, validation and qualified review.
 
 The NDA file is a discussion template, not legal advice or proof of an executed agreement. Obtain appropriate legal review and signatures before confidential disclosure.
+
+
+## Self-contained engineering environment
+
+The repository includes `docker-compose.engineering.yml` and a dedicated worker image containing KiCad, FreeCAD, PlatformIO, ARM/AVR GCC, CMake and Ninja. These are native open-source execution engines, so the platform does not require separate commercial CAD APIs.
+
+Run the engineering environment locally with:
+
+```bash
+WORKER_API_TOKEN="generate-a-long-random-secret" docker compose -f docker-compose.engineering.yml up --build
+```
+
+Set `ENGINEERING_WORKER_URL` and `ENGINEERING_WORKER_TOKEN` only on the server-side application environment. AI intelligence credentials should likewise remain server-side. The user interacts only with Hardware Foundry.
