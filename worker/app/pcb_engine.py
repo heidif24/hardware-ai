@@ -76,7 +76,9 @@ def generate_pcb(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
         if outline_basis not in ALLOWED_PROVENANCE:
             raise ValueError("outline_basis must be user_specified, source_verified or calculated_with_method.")
         seen_refs: set[str] = set()
-        net_names = {str(item.get("name")) for item in nets if isinstance(item, dict)}
+        if any(not isinstance(item, dict) or not isinstance(item.get("name"), str) or not item.get("name").strip() for item in nets):
+            raise ValueError("Every net must be an object with a non-empty string name.")
+        net_names = {item["name"] for item in nets}
         if len(net_names) != len(nets) or "" in net_names:
             raise ValueError("Every net requires a unique non-empty name.")
         for component in components:
@@ -92,6 +94,8 @@ def generate_pcb(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
                     _verified_number(val, f"component {ref}.{key}", minimum=-360, maximum=360)
                 else:
                     _verified_number(val, f"component {ref}.{key}", minimum=0, maximum=10000)
+            if component["x_mm"]["value"] > width or component["y_mm"]["value"] > height:
+                raise ValueError(f"Component {ref} placement lies outside the declared board envelope.")
             if not isinstance(component.get("footprint"), str) or ":" not in component["footprint"]:
                 raise ValueError(f"Component {ref} requires an exact KiCad library:footprint identifier.")
             pads = component.get("pads")
@@ -110,6 +114,8 @@ def generate_pcb(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
             _verified_number(track.get("width_mm"), f"track[{index}].width_mm")
             if track["width_mm"]["value"] > 2:
                 raise ValueError(f"Track {index} width exceeds the safe generator limit; review the design contract.")
+            if any(track[key]["value"] > limit for key, limit in (("start_x_mm", width), ("end_x_mm", width), ("start_y_mm", height), ("end_y_mm", height))):
+                raise ValueError(f"Track {index} endpoint lies outside the declared board envelope.")
         libraries = spec.get("footprint_libraries")
         if not isinstance(libraries, dict):
             raise ValueError("footprint_libraries must map exact KiCad library nicknames to approved .pretty directories.")
