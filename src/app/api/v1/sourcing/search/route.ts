@@ -31,7 +31,11 @@ async function searchDigiKey(query:string):Promise<Part[]>{
  const data=await res.json() as {Products?:unknown[]};
  return asArray(data.Products).map(p=>({provider:"DigiKey",manufacturer:text((p.Manufacturer as Record<string,unknown>|undefined)?.Name),manufacturer_part_number:text(p.ManufacturerProductNumber),distributor_part_number:text(p.DigiKeyProductNumber),description:text(p.ProductDescription),availability:text(p.QuantityAvailable)||null,datasheet_url:safeUrl(p.DatasheetUrl),product_url:safeUrl(p.ProductUrl),image_url:safeUrl(p.PhotoUrl),lifecycle:text(p.ProductStatus)||null,price_breaks:[]}));
 }
+const rateBuckets=new Map<string,{count:number;resetAt:number}>();
+function limited(ip:string){const now=Date.now();const current=rateBuckets.get(ip);if(!current||current.resetAt<=now){rateBuckets.set(ip,{count:1,resetAt:now+60000});return false;}current.count+=1;if(rateBuckets.size>2000){for(const [key,value] of rateBuckets)if(value.resetAt<=now)rateBuckets.delete(key);}return current.count>20;}
 export async function POST(req:NextRequest){try{
+ const ip=(req.headers.get("x-forwarded-for")||"unknown").split(",")[0].trim();
+ if(limited(ip))return NextResponse.json({detail:"Supplier search rate limit reached. Please wait one minute and try again."},{status:429,headers:{"Retry-After":"60"}});
  const body=await req.json() as {query?:unknown};const query=typeof body.query==="string"?body.query.trim():"";
  if(query.length<2||query.length>160)return NextResponse.json({detail:"Search query must contain 2–160 characters."},{status:422});
  const providers=[{name:"Mouser",configured:Boolean(process.env.MOUSER_API_KEY),run:()=>searchMouser(query)},{name:"DigiKey",configured:Boolean(process.env.DIGIKEY_CLIENT_ID&&process.env.DIGIKEY_CLIENT_SECRET),run:()=>searchDigiKey(query)}];
