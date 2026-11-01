@@ -2,10 +2,10 @@ import {NextRequest,NextResponse} from "next/server";
 export const runtime="nodejs";
 export const maxDuration=60;
 
-const PLAN_PROMPT=`You are the chief engineering architect for Hardware Foundry. Convert an approved product concept into a disciplined, machine-readable engineering execution plan for electronics, PCB, firmware, mechanical CAD and verification.
+const PLAN_PROMPT=`You are the chief engineering architect for Hardware Foundry. Convert an approved product concept into a disciplined, machine-readable engineering execution plan for electronics, PCB, firmware, mechanical CAD and verification. Optimise for a cost-effective, durable prototype that an engineering company can build from.
 
 Return ONLY JSON with these keys:
-schema_version, engineering_status, product_summary, requirements_traceability, system_architecture, component_candidates, electrical_design, interface_design, pcb_design, firmware_design, mechanical_design, manufacturing_strategy, verification_plan, unresolved_inputs, generation_gates.
+schema_version, engineering_status, product_summary, proposed_final_design_summary, requirements_traceability, system_architecture, component_candidates, electrical_design, interface_design, pcb_design, firmware_design, mechanical_design, manufacturing_strategy, cost_and_durability_analysis, verification_plan, unresolved_inputs, generation_gates.
 
 Rules:
 - Do not invent component manufacturer part numbers, datasheet facts, footprints, pin numbers, voltage/current ratings, battery capacities, dimensions, tolerances, material grades, radio certifications, test results or regulatory approvals.
@@ -19,7 +19,8 @@ Rules:
 - For enclosure generation, use mechanical_design.parameters with length, width, height, wall, floor and corner values. Every value must be an object containing value and value_basis; only user_specified, source_verified or calculated_with_method values are executable. Provisional targets must never enter native CAD generation.
 - For a proprietary connector, use interface_design.connector_geometry with body_length, body_width, body_height, pitch, contact_diameter, cavity_depth and clearance, each with value and value_basis, plus integer pin_count and rows. Do not invent these dimensions; if absent, leave the connector CAD stage blocked. Geometry generation is not electrical qualification.
 - PCB layout must not be marked routable until schematic, footprint mapping, stackup, board outline, constraints and component placements are frozen.
-- Cost optimisation must compare conventional, optimised and novel candidates, state assumptions and identify what evidence is needed. Never fabricate prices or claim that a novel material is cheaper without evidence.
+- cost_and_durability_analysis MUST compare three paths: conventional, optimised, and novel/foundry. For each path give: summary, expected_unit_cost_drivers (qualitative), durability_notes, manufacturability_notes, risk, and evidence_still_required. Recommend one primary path for a first prototype and explain why. Never fabricate absolute prices; use relative cost drivers and assumptions only.
+- proposed_final_design_summary must be a concise 3–6 sentence description of the recommended prototype configuration an engineering company should start from, including the chosen path, key subsystems, and the main open work.
 - Set each generation gate to READY only when all of its required inputs are present in the supplied data. Otherwise BLOCKED and enumerate missing inputs.
 - Output should be detailed, product-specific and actionable. It must be safe for a downstream worker to refuse incomplete stages.`;
 
@@ -49,7 +50,26 @@ async function generate(body:Obj):Promise<{value:unknown;provider:string}> {
  }
  throw new Error(errors.join("; ")||"No AI provider credentials configured. Configure GEMINI_API_KEY, GROQ_API_KEY or OPENAI_API_KEY in Vercel.");
 }
-function validatePlan(value:unknown):{plan:Obj;missing:string[]} {
+function ensureCostAnalysis(p:Obj):void {
+  if(p.cost_and_durability_analysis&&typeof p.cost_and_durability_analysis==="object")return;
+  p.cost_and_durability_analysis={
+    primary_recommendation:"optimised",
+    paths:[
+      {approach:"conventional",summary:"Use widely available modules and a simple enclosure.",expected_unit_cost_drivers:["Standard modules","Minimal custom tooling"],durability_notes:"Depends on selected module ratings and enclosure protection.",manufacturability_notes:"Fast to prototype; limited integration optimisation.",risk:"Higher recurring cost and larger envelope.",evidence_still_required:["Exact module selection","Power budget","Environmental rating"]},
+      {approach:"optimised",summary:"Reduce part count and prefer proven processes that balance cost and durability for the target quantity.",expected_unit_cost_drivers:["Fewer discrete parts","Shared power path","Standard PCB process"],durability_notes:"Fewer interconnects can improve reliability if margins are verified.",manufacturability_notes:"Good for pilot and small-batch production.",risk:"Requires careful DFM and thermal review.",evidence_still_required:["BOM freeze","Thermal path","Assembly sequence"]},
+      {approach:"novel",summary:"Explore product-specific geometry or interface family only where it measurably improves cost, durability or user value.",expected_unit_cost_drivers:["Custom interface or enclosure features","Possible tooling amortisation"],durability_notes:"Potential gains only if environmental and cycle testing pass.",manufacturability_notes:"Higher upfront engineering; only justified with evidence.",risk:"Unvalidated novelty delays prototype.",evidence_still_required:["Prototype fit/function","Mating and cycle tests","Cost comparison after DFM"]}
+    ],
+    decision_rule:"Recommend the optimised path for a first prototype unless the brief forces extreme cost or extreme novelty. Novel features must earn their place with evidence."
+  };
+}
+function ensureProposedSummary(p:Obj,body:Obj):void {
+  if(typeof p.proposed_final_design_summary==="string"&&p.proposed_final_design_summary.trim().length>40)return;
+  const design=(body.design&&typeof body.design==="object"?body.design:{}) as Obj;
+  const name=typeof design.product_name==="string"?design.product_name:"the product";
+  const modules=Array.isArray(design.modules)?design.modules.length:0;
+  p.proposed_final_design_summary=`Recommended prototype path for ${name}: start from the optimised architecture with ${modules} functional modules, freeze user-approved design decisions, quantify power and environmental requirements, then complete schematic, PCB, enclosure CAD and firmware under normal engineering review. Treat this package as a strong briefing for an engineering company, not a fabrication release.`;
+}
+function validatePlan(value:unknown,body:Obj):{plan:Obj;missing:string[]} {
  if(!value||typeof value!=="object"||Array.isArray(value))throw new Error("Invalid engineering plan.");
  const p=value as Obj;
  const required=["system_architecture","component_candidates","electrical_design","interface_design","pcb_design","firmware_design","mechanical_design","verification_plan","generation_gates","unresolved_inputs"];
@@ -57,6 +77,8 @@ function validatePlan(value:unknown):{plan:Obj;missing:string[]} {
  const missing:string[]=[];
  if(!Array.isArray(p.component_candidates))throw new Error("component_candidates must be an array.");
  p.component_candidates=(p.component_candidates as unknown[]).map((item)=>{if(!item||typeof item!=="object"||Array.isArray(item))return {identity_status:"UNVERIFIED_FUNCTIONAL_CLASS",description:String(item)};const candidate={...(item as Obj)};if((candidate.part_number||candidate.manufacturer)&&(!candidate.source_reference||!candidate.evidence_excerpt)){delete candidate.part_number;delete candidate.manufacturer;candidate.identity_status="UNVERIFIED_FUNCTIONAL_CLASS";candidate.identity_note="Specific manufacturer identity removed because no supplied source evidence supports it.";}return candidate;});
+ ensureCostAnalysis(p);
+ ensureProposedSummary(p,body);
  const gates=p.generation_gates;
  if(!gates||typeof gates!=="object"||Array.isArray(gates))throw new Error("generation_gates must be an object.");
  const requiredStages=["electronics","pcb","firmware","mechanical"];
@@ -77,7 +99,7 @@ function validatePlan(value:unknown):{plan:Obj;missing:string[]} {
  }
  p.engineering_status="ENGINEERING_PLAN_READY_NATIVE_GENERATION_BLOCKED_PENDING_VERIFIED_INPUTS";
  p.unresolved_inputs=Array.isArray(p.unresolved_inputs)?p.unresolved_inputs:[];
- p.schema_version="1.0";
+ p.schema_version="1.1";
  return {plan:p,missing:[...new Set(missing)]};
 }
 export async function POST(req:NextRequest){
@@ -85,7 +107,7 @@ export async function POST(req:NextRequest){
   const body=await req.json() as Obj;
   if(body.design_approved!==true)return NextResponse.json({detail:"Approve the product design before creating an engineering plan."},{status:409});
   if(!body.design||typeof body.design!=="object")return NextResponse.json({detail:"Approved design is required."},{status:422});
-  const generated=await generate(body);const checked=validatePlan(generated.value);
-  return NextResponse.json({engineering_plan:checked.plan,provider:generated.provider,missing_inputs:checked.missing,release_notice:"This plan is an AI-generated engineering proposal, not validated CAD, a verified schematic, a routed PCB or a certified design. Native generation gates must pass and qualified review remains required."});
+  const generated=await generate(body);const checked=validatePlan(generated.value,body);
+  return NextResponse.json({engineering_plan:checked.plan,provider:generated.provider,missing_inputs:checked.missing,release_notice:"This plan is an AI-generated engineering proposal optimised for a cost-effective durable prototype path. It is not validated CAD, a verified schematic, a routed PCB or a certified design. Native generation gates must pass and qualified review remains required."});
  }catch(e){const message=e instanceof Error?e.message:"Engineering plan generation failed.";return NextResponse.json({detail:message},{status:422});}
 }
