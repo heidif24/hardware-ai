@@ -2,7 +2,7 @@
 import {useState} from "react";
 import {Atom,ArrowRight,Check,ChevronRight,Cpu,Download,FileArchive,FileCheck2,Layers3,ShieldCheck,Sparkles,Workflow} from "lucide-react";
 type Module={id:string;name:string;purpose:string;interfaces:string[];parts:string[]};
-type Design={product_name:string;summary:string;assumptions:string[];modules:Module[];risks:string[];validation_status:string;estimated_complexity:string;generation_mode?:string;generation_provider?:string};
+type Design={product_name:string;summary:string;assumptions:string[];modules:Module[];risks:string[];validation_status:string;estimated_complexity:string;generation_mode?:string;generation_provider?:string;generation_notice?:string};
 const examples=["A solar-powered GPS tracker for cattle with cellular connectivity","A compact indoor air-quality monitor with an e-ink display","A low-cost smart irrigation controller for small farms"];
 const stages=[["01","Define","Describe the product and its constraints."],["02","Architect","Generate the functional hardware architecture."],["03","Review","Inspect assumptions, interfaces and risks."],["04","Export","Download a private engineering dossier."]];
 export default function Home(){const[idea,setIdea]=useState("");const[constraints,setConstraints]=useState("");const[quantity,setQuantity]=useState("100");const[design,setDesign]=useState<Design|null>(null);const[busy,setBusy]=useState(false);const[exportBusy,setExportBusy]=useState(false);const[error,setError]=useState("");const[notice,setNotice]=useState("");const[tab,setTab]=useState<"architecture"|"review">("architecture");
