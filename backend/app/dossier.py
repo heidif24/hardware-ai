@@ -72,7 +72,7 @@ def build_dossier(payload: dict) -> tuple[bytes, str]:
     report.extend(f"- {item}\n" for item in design.get("risks", []))
     report.append("\n## Validation\nConcept-level only. This is not an approved circuit design.\n")
     def markdown_section(title: str, items: list[str]) -> str:
-        return "# " + title + "\\n\\n" + ("\\n".join("- " + str(item) for item in items) if items else "To be defined during engineering review.") + "\\n"
+        return "# " + title + "\n\n" + ("\n".join("- " + str(item) for item in items) if items else "To be defined during engineering review.") + "\n"
     requirements_doc = markdown_section("Product requirements baseline", design.get("requirements", []))
     electrical_doc = markdown_section("Electrical design plan", design.get("electrical_design", []))
     interfaces_doc = markdown_section("Interface control document", design.get("interface_control", []))
