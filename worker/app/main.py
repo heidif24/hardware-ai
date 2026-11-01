@@ -175,7 +175,7 @@ def generate_native_project_scaffold(root: Path, job: dict[str, Any]) -> list[di
     (architecture / "ai_engineering_plan.json").write_text(json.dumps(plan, indent=2), encoding="utf-8")
     gates = plan.get("generation_gates", {}) if isinstance(plan, dict) else {}
     blocked = [name for name, gate in gates.items() if not isinstance(gate, dict) or gate.get("status") != "READY"]
-    return [{"passed": not blocked, "status": "READY_FOR_NATIVE_GENERATION" if not blocked else "GENERATION_BLOCKED_PENDING_ENGINEERING_INPUTS", "blocked_stages": blocked, "files": ["00_Foundry_Generation/generation_manifest.json", "00_Foundry_Generation/ai_engineering_plan.json"], "note": "No native generator may run for a blocked stage. Missing evidence is recorded rather than guessed."}]
+    return [{"passed": not blocked, "status": "READY_FOR_NATIVE_GENERATION" if not blocked else "GENERATION_BLOCKED_PENDING_ENGINEERING_INPUTS", "blocked_stages": blocked, "files": ["00_Foundry_Generation/generation_manifest.json", "00_Foundry_Generation/ai_engineering_plan.json"], "note": "Each native generator applies its own independent evidence and provenance checks. Model gate labels are never treated as proof; missing evidence is recorded rather than guessed."}]
 
 
 def validate_firmware(root: Path) -> list[dict[str, Any]]:
