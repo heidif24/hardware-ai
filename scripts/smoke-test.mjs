@@ -24,6 +24,19 @@ async function waitForServer() {
 
 try {
   await waitForServer();
+  const integrationStatus = await fetch(`${base}/api/v1/integrations/status`);
+  assert.equal(integrationStatus.status, 200, "integration status endpoint must return HTTP 200");
+  const status = await integrationStatus.json();
+  assert.ok(Array.isArray(status.integrations) && status.integrations.some((item) => item.id === "supplier-mouser"), "integration status must list supplier adapters");
+  assert.equal(status.security.secrets_returned, false, "integration status must never return secrets");
+
+  const invalidSupplierSearch = await fetch(`${base}/api/v1/sourcing/search`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ query: "x" }),
+  });
+  assert.equal(invalidSupplierSearch.status, 422, "supplier search must validate query length");
+
   const brief = {
     idea: "A compact solar-powered environmental sensor with wireless reporting",
     constraints: "Outdoor use, low power, weather-resistant enclosure; unknown battery runtime.",
