@@ -1,6 +1,7 @@
 "use client";
 import {useEffect,useState} from "react";
-import {Atom,ArrowRight,Check,ChevronRight,Cpu,Download,FileArchive,FileCheck2,Layers3,ShieldCheck,Sparkles,Workflow,Lock,Unlock} from "lucide-react";\nimport DesignDecisionReview,{type Decision,type DecisionSelections,type DecisionNotes} from "./components/DesignDecisionReview";
+import {Atom,ArrowRight,Check,ChevronRight,Cpu,Download,FileArchive,FileCheck2,Layers3,ShieldCheck,Sparkles,Workflow,Lock,Unlock} from "lucide-react";
+import DesignDecisionReview,{type Decision,type DecisionSelections,type DecisionNotes} from "./components/DesignDecisionReview";
 type Module={id:string;name:string;purpose:string;interfaces:string[];parts:string[]};
 type Design={decision_points:Decision[];product_name:string;summary:string;assumptions:string[];modules:Module[];risks:string[];engineering_specification?:Record<string,string|string[]>;validation_status:string;estimated_complexity:string;generation_mode?:string;generation_provider?:string;generation_notice?:string};
 const examples=["A solar-powered GPS tracker for cattle with cellular connectivity","A compact indoor air-quality monitor with an e-ink display","A low-cost smart irrigation controller for small farms"];
