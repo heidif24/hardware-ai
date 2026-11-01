@@ -277,6 +277,8 @@ def execute_job(path: Path) -> None:
         firmware = validate_firmware(path / "workspace")
         mechanical = inspect_mechanical_files(path / "workspace")
         native_generation = generate_engineering_artifacts(path / "workspace", job.get("engineering_plan", {}))
+        generated_files = [str(file.relative_to(path / "workspace")) for file in (path / "workspace").rglob("*") if file.is_file()]
+        uploaded = sorted(set(uploaded + generated_files))
         checks = {"Engineering workspace": workspace_generation, "Generative innovation": innovation, "KiCad": electronics, "Firmware": firmware, "Mechanical": mechanical, "Native generation": [native_generation]}
         report = build_report(job, toolchains, uploaded, checks)
         (path / "workspace" / "09_Testing_And_Validation").mkdir(parents=True, exist_ok=True)
@@ -314,11 +316,13 @@ async def recover_interrupted_jobs() -> None:
     for file in JOBS_ROOT.glob("*/job.json"):
         try:
             job = json.loads(file.read_text(encoding="utf-8"))
-            if job.get("status") in ("QUEUED", "RUNNING"):
+            if job.get("status") == "RUNNING":
                 job["status"] = "FAILED"
-                job["error"] = "Worker restarted before this job completed. Resubmit the job to retry."
+                job["error"] = "Worker restarted during native execution. Review partial workspace artefacts and resubmit to retry."
                 job["finished_at"] = utc_now()
                 write_job(file.parent, job)
+            elif job.get("status") == "QUEUED":
+                asyncio.create_task(asyncio.to_thread(execute_job, file.parent))
         except Exception:
             continue
 
