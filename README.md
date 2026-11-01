@@ -40,31 +40,9 @@ The render is a visual concept, not dimensionally accurate CAD, a validated encl
 4. Download design JSON or the engineering dossier ZIP.
 5. Independently approach manufacturers and obtain a signed NDA before sharing confidential information.
 
-## Integration control centre and component sourcing
-
-The application exposes `GET /api/v1/integrations/status` to report which server-side credential names are present without returning secret values. The UI includes a live sourcing search panel.
-
-### Mouser
-Set `MOUSER_API_KEY`. The app calls the Mouser Search API v2 keyword endpoint and normalises manufacturer part number, distributor SKU, description, availability, datasheet and product links. Obtain an API key from the official [Mouser API portal](https://www.mouser.com/en/api-search/).
-
-### DigiKey
-Set `DIGIKEY_CLIENT_ID` and `DIGIKEY_CLIENT_SECRET`. The app obtains a short-lived OAuth client-credentials token and calls the Product Search API. Register and subscribe the application through the official [DigiKey Developer Portal](https://developer.digikey.com/documentation).
-
-Supplier responses are live vendor information, not verified component selection. The application does not infer electrical suitability, guarantee stock, or place orders. Vendor terms, rate limits and account permissions apply.
-
-### Not yet implemented
-JLCPCB ordering and parts adapters, KiCad schematic/PCB generation, ERC/DRC, Gerber/NC drill/IPC-356 and pick-and-place exports, STEP enclosure CAD, prototype evidence, and manufacturer quote/order workflows are not implemented. The environment variable names in `.env.example` for JLCPCB and CAD worker are reserved configuration placeholders only; setting them does not activate functionality.
-
-## Deliberately out of scope
-
-- Supplier discovery, pricing, quotes or procurement.
-- Component ordering or factory order submission.
-- Automatic manufacturer contact, file sharing or NDA signature verification.
-- Claims that a concept is a validated circuit or fabrication-ready product.
-
 ## Project persistence and operational limits
 
-The current app automatically saves the latest brief and generated architecture in the browser's local storage on that device and browser. It does not yet provide user accounts, cloud project storage, cross-device synchronisation, team workspaces or a project database. Supplier search has a basic per-instance request throttle; before broad public launch, replace this with a shared rate limiter and abuse protection.
+The current app automatically saves the latest brief and generated architecture in the browser's local storage on that device and browser. It does not yet provide user accounts, cloud project storage, cross-device synchronisation, team workspaces or a project database. 
 
 ## Vercel-only architecture
 
