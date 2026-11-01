@@ -4,7 +4,7 @@ ENV QT_QPA_PLATFORM=offscreen
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-pip python3-venv python3-dev \
+    python3 python3-pip python3-venv python3-dev python3-pcbnew \
     kicad freecad \
     gcc gcc-avr avr-libc gcc-arm-none-eabi binutils-arm-none-eabi \
     cmake ninja-build make git ca-certificates \
