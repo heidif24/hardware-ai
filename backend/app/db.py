@@ -1,10 +1,9 @@
 import os
 from datetime import datetime
-from sqlalchemy import create_engine,String,Text,DateTime,ForeignKey,Integer,Float
+from sqlalchemy import create_engine,String,Text,DateTime,ForeignKey,Integer
 from sqlalchemy.orm import DeclarativeBase,mapped_column,Mapped,sessionmaker,relationship
 url=os.getenv("DATABASE_URL","sqlite:///./hardware_foundry.db").replace("postgres://","postgresql+psycopg://",1)
-connect_args={"check_same_thread":False} if url.startswith("sqlite") else {}
-engine=create_engine(url,pool_pre_ping=True,connect_args=connect_args)
+engine=create_engine(url,pool_pre_ping=True,connect_args={"check_same_thread":False} if url.startswith("sqlite") else {})
 SessionLocal=sessionmaker(bind=engine,autoflush=False,autocommit=False)
 class Base(DeclarativeBase):pass
 class User(Base):
